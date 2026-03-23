@@ -1,17 +1,22 @@
-# APK Downloads Directory
+# APK Download Strategy
 
-Place the signed `devora-mdm-latest.apk` file in this directory.
+The provisioning endpoint remains:
 
-The backend serves it at `/downloads/devora-mdm-latest.apk` for Device Owner
-provisioning. Android's setup wizard downloads the APK from this URL during
-factory-reset QR code provisioning.
+- `/downloads/devora-mdm-latest.apk`
 
-## How to update the APK
+For production memory safety, host the APK outside the Spring Boot JAR and set:
 
-1. Build the release APK: `./gradlew :app:assembleRelease`
-2. Copy it here as `devora-mdm-latest.apk`
-3. Generate the SHA-256 checksum:
-   ```
-   cat devora-mdm-latest.apk | openssl dgst -binary -sha256 | openssl base64 | tr '+/' '-_' | tr -d '='
-   ```
-4. Update the checksum in `QrProvisioningHelper.kt` (`DEFAULT_CHECKSUM`)
+- `APP_APK_EXTERNAL_URL=https://your-cdn-or-bucket/devora-mdm-latest.apk`
+
+When this variable is set, the backend endpoint returns an HTTP redirect to the
+external APK URL. This keeps the backend artifact small and avoids loading a
+large APK file into memory.
+
+## Update checklist
+
+1. Build APK (`debug` or `release`) from the Android app.
+2. Upload `devora-mdm-latest.apk` to your external storage/CDN.
+3. Set Railway variable `APP_APK_EXTERNAL_URL` to that file URL.
+4. Generate SHA-256 checksum in Base64 URL-safe format and update
+   `DEFAULT_CHECKSUM` in `QrProvisioningHelper.kt`.
+5. Regenerate a fresh provisioning QR code (old QR can fail).
