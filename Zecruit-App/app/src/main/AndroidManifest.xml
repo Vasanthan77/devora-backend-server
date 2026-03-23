@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.REQUEST_PASSWORD_COMPLEXITY" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- Usage stats for monitoring foreground apps (restriction enforcement fallback) -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- Camera feature — required but not mandatory for install -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="DEVORA"
+        android:usesCleartextTraffic="true"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.DeviceManager"
+        android:networkSecurityConfig="@xml/network_security_config"
+        tools:targetApi="31">
+
+        <meta-data
+            android:name="org.osmdroid.tilesource"
+            android:value="MAPNIK" />
+
+        <activity
+            android:name="com.devora.devicemanager.MainActivity"
+            android:exported="true"
+            android:label="DEVORA">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Handle post-provisioning launch -->
+            <intent-filter>
+                <action android:name="android.app.action.PROVISION_MANAGED_DEVICE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Blocked app overlay — shown when a restricted app is detected -->
+        <activity
+            android:name=".BlockedAppActivity"
+            android:exported="false"
+            android:theme="@style/Theme.DeviceManager"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask" />
+
+        <!-- Device Admin / Device Owner receiver -->
+        <receiver
+            android:name=".AdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
+                <action android:name="android.app.action.DEVICE_ADMIN_DISABLED"/>
+                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE"/>
+                <action android:name="android.app.action.LOCK_TASK_ENTERING"/>
+                <action android:name="android.app.action.LOCK_TASK_EXITING"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- Foreground heartbeat service — keeps device status live every 30s -->
+        <service
+            android:name=".sync.HeartbeatService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
+        <!-- Package install/update monitor for MDM -->
+        <receiver
+            android:name=".receiver.PackageChangeReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".receiver.DeviceBootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/share_paths" />
+        </provider>
+    </application>
+</manifest>

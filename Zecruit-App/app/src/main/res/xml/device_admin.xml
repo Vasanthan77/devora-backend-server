@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device-admin>
+    <uses-policies>
+        <!-- Password quality enforcement -->
+        <limit-password />
+        <!-- Remote wipe capability -->
+        <wipe-data />
+        <!-- Remote lock capability -->
+        <force-lock />
+        <!-- Require storage encryption -->
+        <encrypted-storage />
+        <!-- Disable camera if policy requires -->
+        <disable-camera />
+        <!-- Watch login attempts for security -->
+        <watch-login />
+        <!-- Set lock-screen info (owner message) -->
+        <set-global-proxy />
+        <!-- Expire passwords after N days -->
+        <expire-password />
+        <!-- Disable keyguard features -->
+        <disable-keyguard-features />
+    </uses-policies>
+</device-admin>
