@@ -1,6 +1,7 @@
 package com.mdm.mdm_backend.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -25,6 +26,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleNoResource(NoResourceFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("error", "Not found"));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<?> handleDataIntegrity(DataIntegrityViolationException ex) {
+        String message = "Database constraint violation";
+        if (ex.getMostSpecificCause() != null && ex.getMostSpecificCause().getMessage() != null) {
+            String detail = ex.getMostSpecificCause().getMessage().toLowerCase();
+            if (detail.contains("admins") && detail.contains("email")) {
+                message = "Email already registered";
+            }
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", message));
     }
 
     @ExceptionHandler(Exception.class)
