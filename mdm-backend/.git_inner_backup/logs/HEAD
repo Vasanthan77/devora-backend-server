@@ -1,0 +1,10 @@
+0000000000000000000000000000000000000000 0494c37997b3d66d34ab4a41fff7138286a2e976 VASANTHAN07-coder <vasanthandg@gmail.com> 1772960994 +0530	commit (initial): DEVORA Backend v1.0
+0494c37997b3d66d34ab4a41fff7138286a2e976 877917dd232fff28739784d454431b022d0cf483 VASANTHAN07-coder <vasanthandg@gmail.com> 1772961934 +0530	commit: :Railway config ready
+877917dd232fff28739784d454431b022d0cf483 0000000000000000000000000000000000000000 VASANTHAN07-coder <vasanthandg@gmail.com> 1772961993 +0530	Branch: renamed refs/heads/master to refs/heads/main
+0000000000000000000000000000000000000000 877917dd232fff28739784d454431b022d0cf483 VASANTHAN07-coder <vasanthandg@gmail.com> 1772961993 +0530	Branch: renamed refs/heads/master to refs/heads/main
+877917dd232fff28739784d454431b022d0cf483 bd3a8c4358f06eda79d97fdf98d97980d688b650 VASANTHAN07-coder <vasanthandg@gmail.com> 1773222307 +0530	commit: fix: startup crash + valid application.properties + case-insensitive login
+bd3a8c4358f06eda79d97fdf98d97980d688b650 71cd297ef2d6d760a6cb174dc1f4272fc61b1718 VASANTHAN07-coder <vasanthandg@gmail.com> 1773396584 +0530	commit: backend fix
+71cd297ef2d6d760a6cb174dc1f4272fc61b1718 6c4e6b9f148cd50ef685be817a1463179bf79751 VASANTHAN07-coder <vasanthandg@gmail.com> 1773400637 +0530	commit: backend
+6c4e6b9f148cd50ef685be817a1463179bf79751 e591e3075d4477077ff22928e56357acc0a1b83c VASANTHAN07-coder <vasanthandg@gmail.com> 1773404851 +0530	commit: backend
+e591e3075d4477077ff22928e56357acc0a1b83c 5dda807042b206dd8bdebff2133ecfb4868903c8 VASANTHAN07-coder <vasanthandg@gmail.com> 1773480836 +0530	commit: backend
+5dda807042b206dd8bdebff2133ecfb4868903c8 4069930bad0a63bc08cdbfc0ee4ef75e419e8baf VASANTHAN07-coder <vasanthandg@gmail.com> 1773855639 +0530	commit: backend
