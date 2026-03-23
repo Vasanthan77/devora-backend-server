@@ -31,3 +31,5 @@ build/
 
 ### VS Code ###
 .vscode/
+
+.git_inner_backup/
