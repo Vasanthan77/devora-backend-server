@@ -7,11 +7,13 @@ import com.mdm.mdm_backend.model.entity.Device;
 import com.mdm.mdm_backend.model.entity.DeviceActivity;
 import com.mdm.mdm_backend.model.entity.DeviceAppRestriction;
 import com.mdm.mdm_backend.model.entity.DeviceCommand;
+import com.mdm.mdm_backend.model.entity.DevicePolicy;
 import com.mdm.mdm_backend.model.entity.MdmAlert;
 import com.mdm.mdm_backend.repository.AccurateDeviceLocationRepository;
 import com.mdm.mdm_backend.repository.DeviceActivityRepository;
 import com.mdm.mdm_backend.repository.DeviceAppRestrictionRepository;
 import com.mdm.mdm_backend.repository.DeviceCommandRepository;
+import com.mdm.mdm_backend.repository.DevicePolicyRepository;
 import com.mdm.mdm_backend.repository.DeviceRepository;
 import com.mdm.mdm_backend.repository.MdmAlertRepository;
 import com.mdm.mdm_backend.service.EnrollmentService;
@@ -42,6 +44,7 @@ public class DeviceController {
         private final DeviceActivityRepository activityRepo;
         private final MdmAlertRepository alertRepo;
         private final DeviceRepository deviceRepo;
+        private final DevicePolicyRepository policyRepo;
         private final DeviceCommandRepository commandRepo;
         private final AmapiService amapiService;
 
