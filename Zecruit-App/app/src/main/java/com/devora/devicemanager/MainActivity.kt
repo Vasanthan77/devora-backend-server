@@ -34,8 +34,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.devora.devicemanager.sync.SyncManager
 import com.devora.devicemanager.sync.SyncWorker
 import com.devora.devicemanager.sync.DeviceInfoSyncWorker
-import com.devora.devicemanager.sync.PolicySyncWorker
-import com.devora.devicemanager.sync.LocationSyncWorker
 import com.devora.devicemanager.ui.navigation.AppNavigation
 import com.devora.devicemanager.ui.theme.DevoraTheme
 import com.devora.devicemanager.ui.theme.ThemeViewModel
@@ -74,16 +72,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // If launched after Device Owner provisioning, mark enrollment as pending
-        if (intent?.getBooleanExtra("enrollment_complete", false) == true) {
-            Log.d("MainActivity", "Launched after Device Owner provisioning — enrollment pending")
-        }
-
         // Schedule background sync (15-min interval via WorkManager)
         SyncWorker.schedule(this)
         DeviceInfoSyncWorker.schedule(this)
-        PolicySyncWorker.schedule(this)
-        LocationSyncWorker.schedule(this)
 
         // Start foreground heartbeat service — sends heartbeat every 30s so the
         // backend can detect uninstall within ~30–90 seconds.
@@ -105,10 +96,10 @@ class MainActivity : ComponentActivity() {
             // Sync status: null = not started, "syncing" / "success" / "failed:reason"
             var syncStatus by remember { mutableStateOf<String?>(null) }
 
-            // Trigger sync on first composition if Device Owner
+            // Trigger sync on first composition when AMAPI enrollment exists
             LaunchedEffect(Unit) {
                 val isDeviceOwner = AdminReceiver.isDeviceOwner(this@MainActivity)
-                Log.d("SYNC", "Device Owner status: $isDeviceOwner")
+                Log.d("SYNC", "AMAPI managed status: $isDeviceOwner")
 
                 if (isDeviceOwner) {
                     syncStatus = "syncing"
@@ -190,10 +181,6 @@ class MainActivity : ComponentActivity() {
 
         if (!isEnrolled) return
 
-        // Check if Device Owner — if so, no need for UsageStats
-        val dpm = getSystemService(DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
-        if (dpm.isDeviceOwnerApp(packageName)) return
-
         // Check if already granted
         val appOps = getSystemService(APP_OPS_SERVICE) as AppOpsManager
         val mode = appOps.checkOpNoThrow(
@@ -267,8 +254,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestReadPhoneStateIfNeeded() {
-        val dpm = getSystemService(DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
-        val isDeviceOwner = dpm.isDeviceOwnerApp(packageName)
+        val isDeviceOwner = AdminReceiver.isDeviceOwner(this)
 
         // On API 29+, non-Device Owner apps cannot access IMEI/serial anyway.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !isDeviceOwner) return

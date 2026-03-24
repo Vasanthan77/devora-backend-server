@@ -1,40 +1,40 @@
 package com.mdm.mdm_backend.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mdm.mdm_backend.model.dto.DeviceResponse;
 import com.mdm.mdm_backend.model.dto.EnrollRequest;
 import com.mdm.mdm_backend.model.dto.EnrollmentRequest;
 import com.mdm.mdm_backend.model.dto.EnrollmentTokenResponse;
 import com.mdm.mdm_backend.model.entity.Device;
-import com.mdm.mdm_backend.model.entity.EnrollmentToken;
+import com.mdm.mdm_backend.service.AmapiService;
 import com.mdm.mdm_backend.service.EnrollmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@Slf4j
 public class EnrollmentController {
 
     private final EnrollmentService enrollmentService;
+    private final AmapiService amapiService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private String generateDevToken() {
-        String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        StringBuilder token = new StringBuilder("DEV");
-        for (int group = 0; group < 3; group++) {
-            token.append('-');
-            for (int i = 0; i < 4; i++) {
-                int index = (int) (Math.random() * alphabet.length());
-                token.append(alphabet.charAt(index));
-            }
-        }
-        return token.toString();
-    }
+    @Value("${amapi.enterprise-name:enterprises/LC01oh6rj0}")
+    private String enterpriseName;
+
+    @Value("${amapi.default-policy-id:policy1}")
+    private String defaultPolicyId;
 
     /**
      * Enroll a device with its details.
@@ -58,52 +58,41 @@ public class EnrollmentController {
     }
 
     /**
-     * Generate enrollment token for an employee.
-     * Token is stored in DB with employee details and expiry time.
-     * Token can be used by device to enroll with employee information.
+     * Generate AMAPI enrollment token. PostgreSQL is used for audit/history, not token storage.
      */
     @PostMapping("/enrollment/generate")
     public ResponseEntity<Map<String, Object>> generateToken(@Valid @RequestBody EnrollmentRequest request) {
-        String token = generateDevToken();
+        try {
+            String raw = amapiService.createEnrollmentToken(enterpriseName, defaultPolicyId);
+            JsonNode node = objectMapper.readTree(raw);
+            String token = node.path("value").asText("");
+            String expiresAt = node.path("expirationTimestamp").asText(null);
+            String tokenName = node.path("name").asText(null);
 
-        // Persist token with employee details and expiry
-        EnrollmentToken enrollmentToken = enrollmentService.generateEnrollmentToken(
-                token,
-                request.getEmployeeId(),
-                request.getEmployeeName());
-
-        return ResponseEntity.ok(Map.of(
-                "token", token,
-                "employeeId", request.getEmployeeId(),
-                "employeeName", request.getEmployeeName(),
-                "expiresAt", enrollmentToken.getExpiresAt(),
-                "status", "PENDING"));
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("token", token);
+                payload.put("tokenName", tokenName);
+                payload.put("employeeId", request.getEmployeeId());
+                payload.put("employeeName", request.getEmployeeName());
+                payload.put("expiresAt", expiresAt);
+                payload.put("status", "PENDING");
+                return ResponseEntity.ok(payload);
+        } catch (Exception e) {
+            log.error("Failed to generate AMAPI enrollment token", e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "message", "Failed to generate AMAPI enrollment token",
+                    "error", e.getMessage()));
+        }
     }
 
     @DeleteMapping("/enrollment/{tokenId}")
     public ResponseEntity<Map<String, String>> revokeEnrollment(@PathVariable Long tokenId) {
-        boolean revoked = enrollmentService.revokeEnrollmentToken(tokenId);
-        if (!revoked) {
-            return ResponseEntity.status(404).body(Map.of("message", "Enrollment token not found"));
-        }
-        return ResponseEntity.ok(Map.of("message", "Enrollment token revoked"));
+        return ResponseEntity.ok(Map.of(
+                "message", "AMAPI tokens are managed by Google; local token revocation is not supported in this endpoint"));
     }
 
     @GetMapping("/enrollment/active")
     public ResponseEntity<List<EnrollmentTokenResponse>> getActiveEnrollments() {
-        List<EnrollmentTokenResponse> responses = enrollmentService.getActiveEnrollmentTokens()
-                .stream()
-                .map(token -> EnrollmentTokenResponse.builder()
-                        .id(token.getId())
-                        .token(token.getToken())
-                        .employeeId(token.getEmployeeId())
-                        .employeeName(token.getEmployeeName())
-                        .createdAt(token.getCreatedAt())
-                        .expiresAt(token.getExpiresAt())
-                        .status(token.getStatus())
-                        .deviceId(token.getDeviceId())
-                        .build())
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(responses);
+        return ResponseEntity.ok(List.of());
     }
 }

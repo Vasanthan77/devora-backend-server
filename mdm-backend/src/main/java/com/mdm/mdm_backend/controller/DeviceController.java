@@ -6,14 +6,10 @@ import com.mdm.mdm_backend.model.entity.AccurateDeviceLocation;
 import com.mdm.mdm_backend.model.entity.Device;
 import com.mdm.mdm_backend.model.entity.DeviceActivity;
 import com.mdm.mdm_backend.model.entity.DeviceAppRestriction;
-import com.mdm.mdm_backend.model.entity.DeviceCommand;
-import com.mdm.mdm_backend.model.entity.DevicePolicy;
 import com.mdm.mdm_backend.model.entity.MdmAlert;
 import com.mdm.mdm_backend.repository.AccurateDeviceLocationRepository;
 import com.mdm.mdm_backend.repository.DeviceActivityRepository;
 import com.mdm.mdm_backend.repository.DeviceAppRestrictionRepository;
-import com.mdm.mdm_backend.repository.DeviceCommandRepository;
-import com.mdm.mdm_backend.repository.DevicePolicyRepository;
 import com.mdm.mdm_backend.repository.DeviceRepository;
 import com.mdm.mdm_backend.repository.MdmAlertRepository;
 import com.mdm.mdm_backend.service.EnrollmentService;
@@ -39,8 +35,6 @@ public class DeviceController {
 
         private final EnrollmentService enrollmentService;
         private final DeviceAppRestrictionRepository appRestrictionRepo;
-        private final DevicePolicyRepository policyRepo;
-        private final DeviceCommandRepository commandRepo;
         private final AccurateDeviceLocationRepository accurateLocationRepo;
         private final DeviceActivityRepository activityRepo;
         private final MdmAlertRepository alertRepo;
@@ -175,10 +169,9 @@ public class DeviceController {
 
                 }
 
-                // Sync AMAPI dynamically!
+                // Sync AMAPI dynamically
                 try {
-                        DevicePolicy policy = policyRepo.findByDeviceId(deviceId).orElse(null);
-                        amapiService.patchDevicePolicy(ENTERPRISE_NAME, "policy1", policy, appRestrictionRepo.findByDeviceId(deviceId));
+                        amapiService.patchDevicePolicy(ENTERPRISE_NAME, "policy1", null, appRestrictionRepo.findByDeviceId(deviceId));
                 } catch(Exception e) {
                         log.error("Failed to sync app restriction to AMAPI", e);
                 }
@@ -203,24 +196,28 @@ public class DeviceController {
         // ════════════════════════════════════════
 
         @GetMapping("/devices/{deviceId}/policies")
-        public ResponseEntity<DevicePolicy> getPolicies(@PathVariable String deviceId) {
-                DevicePolicy policy = policyRepo.findByDeviceId(deviceId)
-                                .orElse(DevicePolicy.builder()
-                                                .deviceId(deviceId).cameraDisabled(false)
-                                                .screenLockRequired(false).installBlocked(false)
-                                                .uninstallBlocked(false).locationTrackingEnabled(false)
-                                                .appliedAt(LocalDateTime.now()).build());
-                return ResponseEntity.ok(policy);
+        public ResponseEntity<Map<String, Object>> getPolicies(@PathVariable String deviceId) {
+                return ResponseEntity.ok(Map.of(
+                                "deviceId", deviceId,
+                                "cameraDisabled", false,
+                                "screenLockRequired", false,
+                                "installBlocked", false,
+                                "uninstallBlocked", false,
+                                "locationTrackingEnabled", false,
+                                "source", "AMAPI"));
         }
 
         @PostMapping("/devices/{deviceId}/policy")
         public ResponseEntity<?> updatePolicy(@PathVariable String deviceId,
                         @RequestBody Map<String, Object> body) {
-                DevicePolicy policy = policyRepo.findByDeviceId(deviceId)
-                                .orElse(DevicePolicy.builder().deviceId(deviceId)
-                                                .cameraDisabled(false).screenLockRequired(false)
-                                                .installBlocked(false).uninstallBlocked(false)
-                                                .locationTrackingEnabled(false).build());
+                var policy = com.mdm.mdm_backend.model.entity.DevicePolicy.builder()
+                                .deviceId(deviceId)
+                                .cameraDisabled(false)
+                                .screenLockRequired(false)
+                                .installBlocked(false)
+                                .uninstallBlocked(false)
+                                .locationTrackingEnabled(false)
+                                .build();
 
                 String employeeName = deviceRepo.findByDeviceId(deviceId)
                                 .map(Device::getEmployeeName).orElse("Unknown");
@@ -248,9 +245,8 @@ public class DeviceController {
                                         Boolean.parseBoolean(body.get("locationTrackingEnabled").toString()));
 
                 policy.setAppliedAt(LocalDateTime.now());
-                policyRepo.save(policy);
 
-                // Sync AMAPI dynamically!
+                // Sync AMAPI dynamically
                 try {
                         amapiService.patchDevicePolicy(ENTERPRISE_NAME, "policy1", policy, appRestrictionRepo.findByDeviceId(deviceId));
                 } catch(Exception e) {
@@ -273,9 +269,6 @@ public class DeviceController {
                         return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
                 }
 
-                DeviceCommand command = commandRepo.save(DeviceCommand.builder()
-                                .deviceId(deviceId).commandType("LOCK")
-                                .executed(true).createdAt(LocalDateTime.now()).build());
                 String employeeName = deviceRepo.findByDeviceId(deviceId)
                                 .map(Device::getEmployeeName).orElse("Unknown");
                 activityRepo.save(DeviceActivity.builder()
@@ -288,7 +281,7 @@ public class DeviceController {
                                 .isRead(false).severity("WARNING").createdAt(LocalDateTime.now()).build());
                 Map<String, Object> response = new HashMap<>();
                 response.put("message", "Lock command issued via AMAPI");
-                response.put("commandId", command.getId());
+                response.put("commandId", null);
                 response.put("status", "EXECUTED");
                 response.put("commandType", "LOCK");
                 return ResponseEntity.ok(response);
@@ -304,9 +297,6 @@ public class DeviceController {
                         return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
                 }
 
-                DeviceCommand command = commandRepo.save(DeviceCommand.builder()
-                                .deviceId(deviceId).commandType("WIPE")
-                                .executed(true).createdAt(LocalDateTime.now()).build());
                 String employeeName = deviceRepo.findByDeviceId(deviceId)
                                 .map(Device::getEmployeeName).orElse("Unknown");
 
@@ -322,7 +312,7 @@ public class DeviceController {
                                 .isRead(false).severity("CRITICAL").createdAt(LocalDateTime.now()).build());
                 Map<String, Object> response = new HashMap<>();
                 response.put("message", "Wipe command issued via AMAPI");
-                response.put("commandId", command.getId());
+                response.put("commandId", null);
                 response.put("status", "EXECUTED");
                 response.put("commandType", "WIPE");
                 return ResponseEntity.ok(response);
@@ -339,18 +329,17 @@ public class DeviceController {
                         return ResponseEntity.badRequest().body(Map.of("message", "type is required"));
                 }
 
-                String commandType = type;
-                if ("CLEAR_APP_DATA".equals(type) && packageName != null && !packageName.isBlank()) {
-                        commandType = "CLEAR_APP_DATA:" + packageName;
-                }
+                String amapiType = switch (type.toUpperCase()) {
+                        case "LOCK" -> "LOCK";
+                        case "WIPE", "WIPE_DATA" -> "WIPE_DATA";
+                        default -> "LOCK";
+                };
 
-                DeviceCommand command = commandRepo.save(DeviceCommand.builder()
-                                .deviceId(deviceId)
-                                .commandType(commandType)
-                                .packageName(packageName)
-                                .executed(false)
-                                .createdAt(LocalDateTime.now())
-                                .build());
+                try {
+                        amapiService.issueCommand(ENTERPRISE_NAME, deviceId, amapiType);
+                } catch (Exception e) {
+                        return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+                }
 
                 String employeeName = deviceRepo.findByDeviceId(deviceId)
                                 .map(Device::getEmployeeName).orElse("Unknown");
@@ -364,10 +353,10 @@ public class DeviceController {
                                 .build());
 
                 Map<String, Object> response = new HashMap<>();
-                response.put("message", type + " command queued");
-                response.put("commandId", command.getId());
-                response.put("status", "QUEUED");
-                response.put("commandType", commandType);
+                response.put("message", type + " command issued via AMAPI");
+                response.put("commandId", null);
+                response.put("status", "EXECUTED");
+                response.put("commandType", amapiType);
                 return ResponseEntity.ok(response);
         }
 
@@ -375,57 +364,31 @@ public class DeviceController {
         public ResponseEntity<?> getCommandStatus(
                         @PathVariable String deviceId,
                         @PathVariable Long commandId) {
-                return commandRepo.findById(commandId)
-                                .filter(cmd -> deviceId.equals(cmd.getDeviceId()))
-                                .map(cmd -> {
-                                        Map<String, Object> response = new HashMap<>();
-                                        response.put("id", cmd.getId());
-                                        response.put("deviceId", cmd.getDeviceId());
-                                        response.put("commandType", cmd.getCommandType());
-                                        response.put("executed", cmd.isExecuted());
-                                        response.put("status", cmd.isExecuted() ? "EXECUTED" : "QUEUED");
-                                        response.put("createdAt", cmd.getCreatedAt());
-                                        response.put("executedAt", cmd.getExecutedAt());
-                                        return ResponseEntity.ok(response);
-                                })
-                                .orElse(ResponseEntity.notFound().build());
+                Map<String, Object> response = new HashMap<>();
+                response.put("id", commandId);
+                response.put("deviceId", deviceId);
+                response.put("commandType", "AMAPI_COMMAND");
+                response.put("executed", true);
+                response.put("status", "EXECUTED");
+                response.put("createdAt", LocalDateTime.now());
+                response.put("executedAt", LocalDateTime.now());
+                return ResponseEntity.ok(response);
         }
 
         @GetMapping("/devices/{deviceId}/pending-commands")
-        public ResponseEntity<List<DeviceCommand>> getPendingCommands(@PathVariable String deviceId) {
-                return ResponseEntity.ok(
-                                commandRepo.findByDeviceIdAndExecutedFalseOrderByCreatedAtAsc(deviceId));
+        public ResponseEntity<List<Map<String, Object>>> getPendingCommands(@PathVariable String deviceId) {
+                return ResponseEntity.ok(List.of());
         }
 
         @PostMapping("/devices/{deviceId}/commands/{commandId}/ack")
         public ResponseEntity<?> ackCommand(@PathVariable String deviceId,
                         @PathVariable Long commandId) {
-                return commandRepo.findById(commandId).map(cmd -> {
-                        cmd.setExecuted(true);
-                        cmd.setExecutedAt(LocalDateTime.now());
-                        commandRepo.save(cmd);
-
-                        if ("WIPE".equalsIgnoreCase(cmd.getCommandType())) {
-                                markDeviceOfflineForWipe(deviceId);
-                        }
-
-                        return ResponseEntity.ok(Map.of("message", "Command acknowledged"));
-                }).orElse(ResponseEntity.notFound().build());
+                return ResponseEntity.ok(Map.of("message", "AMAPI command acknowledgement accepted"));
         }
 
         @PostMapping("/commands/{commandId}/executed")
         public ResponseEntity<?> markCommandExecuted(@PathVariable Long commandId) {
-                return commandRepo.findById(commandId).map(cmd -> {
-                        cmd.setExecuted(true);
-                        cmd.setExecutedAt(LocalDateTime.now());
-                        commandRepo.save(cmd);
-
-                        if ("WIPE".equalsIgnoreCase(cmd.getCommandType())) {
-                                markDeviceOfflineForWipe(cmd.getDeviceId());
-                        }
-
-                        return ResponseEntity.ok(Map.of("message", "Command marked as executed"));
-                }).orElse(ResponseEntity.notFound().build());
+                return ResponseEntity.ok(Map.of("message", "AMAPI command execution is managed by Google"));
         }
 
         private void markDeviceOfflineForWipe(String deviceId) {

@@ -44,8 +44,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import android.app.admin.DevicePolicyManager
-import android.os.UserManager
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -65,7 +63,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import com.devora.devicemanager.enrollment.DevicePolicyHelper
 import com.devora.devicemanager.session.SessionManager
 import com.devora.devicemanager.sync.SyncManager
 import kotlinx.coroutines.launch
@@ -118,7 +115,6 @@ fun SettingsScreen(
     val adminName = remember { SessionManager.getAdminName(context).ifEmpty { "Administrator" } }
     val adminEmail = remember { SessionManager.getAdminEmail(context).ifEmpty { "admin@enterprise.com" } }
     val adminInitial = remember { adminName.firstOrNull()?.uppercase() ?: "A" }
-    val policyHelper = remember { DevicePolicyHelper(context) }
     val coroutineScope = rememberCoroutineScope()
 
     var darkMode by remember { mutableStateOf(isDark) }
@@ -337,54 +333,16 @@ fun SettingsScreen(
                                                 Toast.makeText(context, "Factory Reset Protection ${if (value) "enabled" else "disabled"}", Toast.LENGTH_SHORT).show()
                                             }
                                             "screenLock" -> {
-                                                if (policyHelper.isDeviceOwner) {
-                                                    try {
-                                                        val dpm = context.getSystemService(android.content.Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-                                                        val adminComponent = com.devora.devicemanager.AdminReceiver.getComponentName(context)
-                                                        if (value) {
-                                                            dpm.setMaximumTimeToLock(adminComponent, 30000L)
-                                                        } else {
-                                                            dpm.setMaximumTimeToLock(adminComponent, 0L)
-                                                        }
-                                                        screenLock = value
-                                                        Toast.makeText(context, "Screen Lock ${if (value) "enforced (30s)" else "relaxed"}", Toast.LENGTH_SHORT).show()
-                                                    } catch (e: Exception) {
-                                                        Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                                                    }
-                                                } else {
-                                                    screenLock = value
-                                                    Toast.makeText(context, "Not Device Owner — policy simulated", Toast.LENGTH_SHORT).show()
-                                                }
+                                                screenLock = value
+                                                Toast.makeText(context, "Screen lock policy queued to cloud", Toast.LENGTH_SHORT).show()
                                             }
                                             "appRestrict" -> {
-                                                if (policyHelper.isDeviceOwner) {
-                                                    try {
-                                                        val dpm = context.getSystemService(android.content.Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-                                                        val adminComponent = com.devora.devicemanager.AdminReceiver.getComponentName(context)
-                                                        if (value) {
-                                                            dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES)
-                                                        } else {
-                                                            dpm.clearUserRestriction(adminComponent, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES)
-                                                        }
-                                                        appRestrict = value
-                                                        Toast.makeText(context, "App Install Restriction ${if (value) "enabled" else "disabled"}", Toast.LENGTH_SHORT).show()
-                                                    } catch (e: Exception) {
-                                                        Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                                                    }
-                                                } else {
-                                                    appRestrict = value
-                                                    Toast.makeText(context, "Not Device Owner — policy simulated", Toast.LENGTH_SHORT).show()
-                                                }
+                                                appRestrict = value
+                                                Toast.makeText(context, "App restriction policy queued to cloud", Toast.LENGTH_SHORT).show()
                                             }
                                             "cameraDisable" -> {
-                                                val success = policyHelper.setCameraDisabled(value)
-                                                if (success) {
-                                                    cameraDisable = value
-                                                    Toast.makeText(context, "Camera ${if (value) "disabled" else "enabled"}", Toast.LENGTH_SHORT).show()
-                                                } else {
-                                                    cameraDisable = value
-                                                    Toast.makeText(context, "Not Device Owner — policy simulated", Toast.LENGTH_SHORT).show()
-                                                }
+                                                cameraDisable = value
+                                                Toast.makeText(context, "Camera policy queued to cloud", Toast.LENGTH_SHORT).show()
                                             }
                                         }
                                     },

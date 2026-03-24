@@ -4,7 +4,6 @@ import android.app.AppOpsManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.app.admin.DevicePolicyManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
@@ -13,7 +12,6 @@ import android.os.IBinder
 import android.os.Process
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.devora.devicemanager.AdminReceiver
 import com.devora.devicemanager.BlockedAppActivity
 import com.devora.devicemanager.network.RetrofitClient
 import com.devora.devicemanager.session.SessionManager
@@ -141,8 +139,7 @@ class HeartbeatService : Service() {
 
     /**
      * Fetches restricted apps from backend.
-     * If Device Owner: uses setPackagesSuspended() so apps stay visible but blocked.
-     * Always updates the local cache for UsageStats-based monitoring.
+     * Fetches cloud restrictions and updates the local cache for UsageStats monitoring.
      */
     private suspend fun enforceAppRestrictions(deviceId: String) {
         try {
@@ -152,45 +149,12 @@ class HeartbeatService : Service() {
             val restrictions = response.body() ?: emptyList()
             val newRestricted = mutableMapOf<String, String>()
 
-            val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-            val isDeviceOwner = dpm.isDeviceOwnerApp(packageName)
-
-            if (isDeviceOwner) {
-                val admin = AdminReceiver.getComponentName(this@HeartbeatService)
-                val toSuspend = mutableSetOf<String>()
-                val explicitUnsuspend = mutableSetOf<String>()
-                for (r in restrictions) {
-                    if (r.restricted) {
-                        newRestricted[r.packageName] = r.appName ?: r.packageName
-                        toSuspend.add(r.packageName)
-                    } else {
-                        explicitUnsuspend.add(r.packageName)
-                    }
+            for (r in restrictions) {
+                if (r.restricted) {
+                    newRestricted[r.packageName] = r.appName ?: r.packageName
                 }
-
-                // Unsuspend previously restricted apps no longer present.
-                val prefs = getSharedPreferences("devora_restrictions", Context.MODE_PRIVATE)
-                val previousRestricted = prefs.getStringSet("restricted_packages", emptySet()) ?: emptySet()
-                val toUnsuspend = explicitUnsuspend + (previousRestricted - newRestricted.keys)
-
-                if (toSuspend.isNotEmpty()) {
-                    dpm.setPackagesSuspended(admin, toSuspend.toTypedArray(), true)
-                    Log.d(TAG, "Suspended ${toSuspend.size} app(s)")
-                }
-                if (toUnsuspend.isNotEmpty()) {
-                    dpm.setPackagesSuspended(admin, toUnsuspend.toTypedArray(), false)
-                    Log.d(TAG, "Unsuspended ${toUnsuspend.size} app(s)")
-                }
-                prefs.edit().putStringSet("restricted_packages", newRestricted.keys.toSet()).apply()
-            } else {
-                // Not device owner — only build the cache for UsageStats monitoring
-                for (r in restrictions) {
-                    if (r.restricted) {
-                        newRestricted[r.packageName] = r.appName ?: r.packageName
-                    }
-                }
-                Log.d(TAG, "Not Device Owner — using UsageStats monitoring for ${newRestricted.size} restricted apps")
             }
+            Log.d(TAG, "AMAPI restrictions cached: ${newRestricted.size} app(s)")
 
             // Update cache for the monitoring loop
             synchronized(restrictedAppsCache) {

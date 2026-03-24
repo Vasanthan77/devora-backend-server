@@ -2,7 +2,6 @@ package com.devora.devicemanager.ui.screens.devices
 
 import android.graphics.BitmapFactory
 import android.app.PendingIntent
-import android.app.admin.DevicePolicyManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -107,7 +106,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.devora.devicemanager.AdminReceiver
 import com.devora.devicemanager.network.AppInventoryItem
 import com.devora.devicemanager.network.CommandRequest
 import com.devora.devicemanager.network.DeviceActivityResponse
@@ -1132,19 +1130,7 @@ private fun AppsTab(deviceId: String, isDark: Boolean, textColor: Color) {
     }
 
     fun applyLocalRestriction(packageName: String, restricted: Boolean): Boolean {
-        return try {
-            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-            if (!dpm.isDeviceOwnerApp(context.packageName)) {
-                true
-            } else {
-                val adminComponent = AdminReceiver.getComponentName(context)
-                dpm.setPackagesSuspended(adminComponent, arrayOf(packageName), restricted)
-                true
-            }
-        } catch (e: Exception) {
-            Log.e("AppsTab", "Local app restriction apply failed for $packageName: ${e.message}")
-            false
-        }
+        return true
     }
 
     suspend fun refreshRestrictionState() {
@@ -1303,15 +1289,6 @@ private fun AppsTab(deviceId: String, isDark: Boolean, textColor: Color) {
                         installBlocked = enabled
                         coroutineScope.launch {
                             try {
-                                val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-                                if (dpm.isDeviceOwnerApp(context.packageName)) {
-                                    val adminComponent = AdminReceiver.getComponentName(context)
-                                    if (enabled) {
-                                        dpm.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_INSTALL_APPS)
-                                    } else {
-                                        dpm.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_INSTALL_APPS)
-                                    }
-                                }
                                 RetrofitClient.api.updateDevicePolicy(
                                     deviceId,
                                     PolicyUpdateRequest(installBlocked = enabled)
@@ -1342,15 +1319,6 @@ private fun AppsTab(deviceId: String, isDark: Boolean, textColor: Color) {
                         uninstallBlocked = enabled
                         coroutineScope.launch {
                             try {
-                                val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-                                if (dpm.isDeviceOwnerApp(context.packageName)) {
-                                    val adminComponent = AdminReceiver.getComponentName(context)
-                                    if (enabled) {
-                                        dpm.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_UNINSTALL_APPS)
-                                    } else {
-                                        dpm.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_UNINSTALL_APPS)
-                                    }
-                                }
                                 RetrofitClient.api.updateDevicePolicy(
                                     deviceId,
                                     PolicyUpdateRequest(uninstallBlocked = enabled)
