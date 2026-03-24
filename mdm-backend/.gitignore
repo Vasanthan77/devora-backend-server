@@ -33,3 +33,4 @@ build/
 .vscode/
 
 .git_inner_backup/
+src/main/resources/service-account.json
