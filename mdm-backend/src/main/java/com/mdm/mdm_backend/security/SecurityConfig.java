@@ -2,7 +2,6 @@ package com.mdm.mdm_backend.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -22,11 +21,8 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${MDM_API_USERNAME:mdm-device}")
-    private String apiUsername;
-
-    @Value("${MDM_API_PASSWORD:SecurePass123}")
-    private String apiPassword;
+    private static final String DEFAULT_API_USERNAME = "mdm-device";
+    private static final String DEFAULT_API_PASSWORD = "SecurePass123";
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -51,12 +47,22 @@ public class SecurityConfig {
 
     @Bean
     public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
+        String apiUsername = readEnvOrDefault("MDM_API_USERNAME", DEFAULT_API_USERNAME);
+        String apiPassword = readEnvOrDefault("MDM_API_PASSWORD", DEFAULT_API_PASSWORD);
         return new InMemoryUserDetailsManager(
             User.withUsername(apiUsername)
                 .password(passwordEncoder.encode(apiPassword))
                 .roles("DEVICE")
                 .build()
         );
+    }
+
+    private String readEnvOrDefault(String key, String defaultValue) {
+        String value = System.getenv(key);
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+        return value;
     }
 
     @Bean
