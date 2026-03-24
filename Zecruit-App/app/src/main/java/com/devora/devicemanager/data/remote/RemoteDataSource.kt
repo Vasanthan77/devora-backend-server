@@ -65,4 +65,16 @@ object RemoteDataSource {
 
     suspend fun markAlertsRead(request: MarkAlertsReadRequest) =
         RetrofitClient.api.markAlertsRead(request)
+
+    suspend fun getAmapiDevices(enterpriseName: String? = null) =
+        RetrofitClient.api.getAmapiDevices(enterpriseName)
+
+    suspend fun getAmapiDevice(deviceId: String, enterpriseName: String? = null) =
+        RetrofitClient.api.getAmapiDevice(deviceId, enterpriseName)
+
+    suspend fun lockDeviceAmapi(deviceId: String, enterpriseName: String? = null) =
+        RetrofitClient.api.lockDeviceAmapi(deviceId, enterpriseName)
+
+    suspend fun wipeDeviceAmapi(deviceId: String, enterpriseName: String? = null) =
+        RetrofitClient.api.wipeDeviceAmapi(deviceId, enterpriseName)
 }

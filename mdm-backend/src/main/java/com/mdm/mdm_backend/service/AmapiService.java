@@ -7,8 +7,14 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Collections;
 
 @Service
@@ -17,12 +23,31 @@ public class AmapiService {
     @Value("classpath:service-account.json")
     private Resource serviceAccountResource;
 
+    @Value("${GOOGLE_SERVICE_ACCOUNT_JSON:}")
+    private String serviceAccountJson;
+
+    @Value("${GOOGLE_SERVICE_ACCOUNT_JSON_BASE64:}")
+    private String serviceAccountJsonBase64;
+
     private static final String AMAPI_SCOPES = "https://www.googleapis.com/auth/androidmanagement";
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    private InputStream getServiceAccountInputStream() throws Exception {
+        if (serviceAccountJson != null && !serviceAccountJson.isBlank()) {
+            return new ByteArrayInputStream(serviceAccountJson.getBytes(StandardCharsets.UTF_8));
+        }
+
+        if (serviceAccountJsonBase64 != null && !serviceAccountJsonBase64.isBlank()) {
+            byte[] decoded = Base64.getDecoder().decode(serviceAccountJsonBase64);
+            return new ByteArrayInputStream(decoded);
+        }
+
+        return serviceAccountResource.getInputStream();
+    }
+
     private String getAccessToken() throws Exception {
-        try (InputStream in = serviceAccountResource.getInputStream()) {
+        try (InputStream in = getServiceAccountInputStream()) {
             GoogleCredentials credentials = GoogleCredentials.fromStream(in)
                     .createScoped(Collections.singleton(AMAPI_SCOPES));
             credentials.refreshIfExpired();
@@ -31,10 +56,10 @@ public class AmapiService {
     }
 
     private String getProjectId() throws Exception {
-         try (InputStream in = serviceAccountResource.getInputStream()) {
+        try (InputStream in = getServiceAccountInputStream()) {
             ServiceAccountCredentials credentials = (ServiceAccountCredentials) GoogleCredentials.fromStream(in);
             return credentials.getProjectId();
-         }
+        }
     }
 
     public String createEnterprise() throws Exception {
@@ -45,7 +70,8 @@ public class AmapiService {
             throw new RuntimeException("Could not find project_id in service-account.json");
         }
 
-        String url = "https://androidmanagement.googleapis.com/v1/enterprises?projectId=" + projectId + "&agreementAccepted=true";
+        String url = "https://androidmanagement.googleapis.com/v1/enterprises?projectId=" + projectId
+                + "&agreementAccepted=true";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
@@ -72,7 +98,8 @@ public class AmapiService {
         }
     }
 
-    public String updateEnterprisePubsubTopic(String enterpriseName, String projectId, String topicName) throws Exception {
+    public String updateEnterprisePubsubTopic(String enterpriseName, String projectId, String topicName)
+            throws Exception {
         String accessToken = getAccessToken();
         String url = "https://androidmanagement.googleapis.com/v1/" + enterpriseName;
 
@@ -98,9 +125,47 @@ public class AmapiService {
         }
     }
 
-    public String patchDevicePolicy(String enterpriseName, String policyId, 
-                                  com.mdm.mdm_backend.model.entity.DevicePolicy dbPolicy, 
-                                  java.util.List<com.mdm.mdm_backend.model.entity.DeviceAppRestriction> apps) throws Exception {
+    public String createPolicy(String enterpriseName, String policyId) throws Exception {
+        String accessToken = getAccessToken();
+        String url = "https://androidmanagement.googleapis.com/v1/" + enterpriseName + "/policies/" + policyId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        String requestBody = """
+                {
+                    "passwordRequirements": {
+                        "passwordQuality": "NUMERIC",
+                        "passwordMinimumLength": 6
+                    },
+                    "cameraDisabled": false,
+                    "screenCaptureDisabled": true,
+                    "factoryResetDisabled": true,
+                    "playStoreMode": "BLACKLIST",
+                    "applications": [
+                        {
+                            "packageName": "com.android.chrome",
+                            "installType": "FORCE_INSTALLED",
+                            "defaultPermissionPolicy": "GRANT"
+                        }
+                    ]
+                }
+                """;
+
+        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.PUT, entity, String.class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return response.getBody();
+        } else {
+            throw new RuntimeException("Failed to create policy: " + response.getBody());
+        }
+    }
+
+    public String patchDevicePolicy(String enterpriseName, String policyId,
+            com.mdm.mdm_backend.model.entity.DevicePolicy dbPolicy,
+            java.util.List<com.mdm.mdm_backend.model.entity.DeviceAppRestriction> apps) throws Exception {
         String accessToken = getAccessToken();
         String url = "https://androidmanagement.googleapis.com/v1/" + enterpriseName + "/policies/" + policyId;
 
@@ -109,8 +174,8 @@ public class AmapiService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-HTTP-Method-Override", "PATCH");
 
-        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        com.fasterxml.jackson.databind.node.ObjectNode rootNode = mapper.createObjectNode();
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
 
         boolean cameraDisabled = (dbPolicy != null) && dbPolicy.isCameraDisabled();
         boolean screenLockRequired = (dbPolicy != null) && dbPolicy.isScreenLockRequired();
@@ -121,7 +186,7 @@ public class AmapiService {
         rootNode.put("factoryResetDisabled", true);
 
         // Map password requirements
-        com.fasterxml.jackson.databind.node.ObjectNode passwordNode = rootNode.putObject("passwordRequirements");
+        ObjectNode passwordNode = rootNode.putObject("passwordRequirements");
         passwordNode.put("passwordQuality", "NUMERIC");
         if (screenLockRequired) {
             passwordNode.put("passwordMinimumLength", 6);
@@ -137,10 +202,10 @@ public class AmapiService {
         }
 
         // Map applications
-        com.fasterxml.jackson.databind.node.ArrayNode appsArray = rootNode.putArray("applications");
-        
+        ArrayNode appsArray = rootNode.putArray("applications");
+
         // Ensure Chrome is installed for testing default behavior
-        com.fasterxml.jackson.databind.node.ObjectNode chromeApp = appsArray.addObject();
+        ObjectNode chromeApp = appsArray.addObject();
         chromeApp.put("packageName", "com.android.chrome");
         chromeApp.put("installType", "FORCE_INSTALLED");
         chromeApp.put("defaultPermissionPolicy", "GRANT");
@@ -148,7 +213,7 @@ public class AmapiService {
         if (apps != null) {
             for (var app : apps) {
                 if (app.getPackageName() != null && !app.getPackageName().equals("com.android.chrome")) {
-                    com.fasterxml.jackson.databind.node.ObjectNode appNode = appsArray.addObject();
+                    ObjectNode appNode = appsArray.addObject();
                     appNode.put("packageName", app.getPackageName());
                     if (app.isRestricted()) {
                         appNode.put("installType", "BLOCKED");
@@ -207,7 +272,8 @@ public class AmapiService {
 
     public String issueCommand(String enterpriseName, String deviceId, String commandType) throws Exception {
         String accessToken = getAccessToken();
-        // deviceId in AMAPI usually includes the enterprise, e.g. "enterprises/LC01oh6rj0/devices/12345"
+        // deviceId in AMAPI usually includes the enterprise, e.g.
+        // "enterprises/LC01oh6rj0/devices/12345"
         // But if frontend only sends "12345", we construct the full name.
         String deviceName = deviceId.startsWith("enterprises/") ? deviceId : enterpriseName + "/devices/" + deviceId;
         String url = "https://androidmanagement.googleapis.com/v1/" + deviceName + ":issueCommand";

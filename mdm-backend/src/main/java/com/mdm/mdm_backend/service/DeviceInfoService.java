@@ -1,9 +1,7 @@
 package com.mdm.mdm_backend.service;
 
 import com.mdm.mdm_backend.model.dto.DeviceInfoRequest;
-import com.mdm.mdm_backend.model.entity.Device;
 import com.mdm.mdm_backend.model.entity.DeviceInfo;
-import com.mdm.mdm_backend.model.entity.Employee;
 import com.mdm.mdm_backend.repository.DeviceInfoRepository;
 import com.mdm.mdm_backend.repository.DeviceRepository;
 import com.mdm.mdm_backend.repository.EmployeeRepository;
@@ -49,10 +47,13 @@ public class DeviceInfoService {
                 .collectedAt(LocalDateTime.now())
                 .build();
 
-        // Also update the Device record with model/manufacturer so the admin list is accurate
+        // Also update the Device record with model/manufacturer so the admin list is
+        // accurate
         deviceRepository.findByDeviceId(request.getDeviceId()).ifPresent(device -> {
-            if (request.getModel() != null) device.setDeviceModel(request.getModel());
-            if (request.getManufacturer() != null) device.setManufacturer(request.getManufacturer());
+            if (request.getModel() != null)
+                device.setDeviceModel(request.getModel());
+            if (request.getManufacturer() != null)
+                device.setManufacturer(request.getManufacturer());
             device.setLastSeenAt(LocalDateTime.now());
 
             if (request.getEmployeeId() != null && !request.getEmployeeId().isBlank()) {

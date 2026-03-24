@@ -273,6 +273,19 @@ fun DeviceDetailScreen(
             }
 
             if (!queued) {
+                if (commandType == "LOCK" || commandType == "WIPE") {
+                    val amapiResponse = if (commandType == "LOCK") {
+                        apiService.lockDeviceAmapi(deviceId)
+                    } else {
+                        apiService.wipeDeviceAmapi(deviceId)
+                    }
+
+                    if (amapiResponse.isSuccessful) {
+                        snackbarHostState.showSnackbar(successMessage)
+                        return true
+                    }
+                }
+
                 snackbarHostState.showSnackbar("Failed to send $commandType command")
                 return false
             }

@@ -158,6 +158,7 @@ data class DevicePolicyResponse(
 
 data class PolicyUpdateRequest(
     @SerializedName("cameraDisabled") val cameraDisabled: Boolean? = null,
+    @SerializedName("screenLockRequired") val screenLockRequired: Boolean? = null,
     @SerializedName("installBlocked") val installBlocked: Boolean? = null,
     @SerializedName("uninstallBlocked") val uninstallBlocked: Boolean? = null,
     @SerializedName("locationTrackingEnabled") val locationTrackingEnabled: Boolean? = null
@@ -509,6 +510,31 @@ interface EnrollmentApiService {
         @Path("deviceId") deviceId: String,
         @Query("limit") limit: Int = 5
     ): Response<List<DeviceLocationResponse>>
+
+    // ── Direct AMAPI Management ──
+
+    @GET("api/amapi/devices")
+    suspend fun getAmapiDevices(
+        @Query("enterpriseName") enterpriseName: String? = null
+    ): Response<String>
+
+    @GET("api/amapi/devices/{deviceId}")
+    suspend fun getAmapiDevice(
+        @Path("deviceId") deviceId: String,
+        @Query("enterpriseName") enterpriseName: String? = null
+    ): Response<String>
+
+    @POST("api/amapi/devices/{deviceId}/lock")
+    suspend fun lockDeviceAmapi(
+        @Path("deviceId") deviceId: String,
+        @Query("enterpriseName") enterpriseName: String? = null
+    ): Response<String>
+
+    @POST("api/amapi/devices/{deviceId}/wipe")
+    suspend fun wipeDeviceAmapi(
+        @Path("deviceId") deviceId: String,
+        @Query("enterpriseName") enterpriseName: String? = null
+    ): Response<String>
 }
 
 // ══════════════════════════════════════

@@ -19,6 +19,7 @@ import com.mdm.mdm_backend.repository.MdmAlertRepository;
 import com.mdm.mdm_backend.service.EnrollmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,30 +47,24 @@ public class DeviceController {
         private final MdmAlertRepository alertRepo;
         private final DeviceRepository deviceRepo;
         private final AmapiService amapiService;
-        
-        // Hardcoded for your new enterprise
-        private static final String ENTERPRISE_NAME = "enterprises/LC01oh6rj0";
+
+        @Value("${amapi.enterprise-name:enterprises/LC01oh6rj0}")
+        private String enterpriseName;
+
+        @Value("${amapi.policy-id:policy1}")
+        private String amapiPolicyId;
 
         @GetMapping("/devices")
-        public ResponseEntity<?> getAllDevices() {
-                try {
-                        String amapiResponse = amapiService.listDevices(ENTERPRISE_NAME);
-                        return ResponseEntity.ok(amapiResponse);
-                } catch (Exception e) {
-                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                                             .body(Map.of("message", e.getMessage()));
-                }
+        public ResponseEntity<List<DeviceResponse>> getAllDevices() {
+                return ResponseEntity.ok(enrollmentService.getAllDevicesAsResponse());
         }
 
         @GetMapping("/devices/{deviceId}")
         public ResponseEntity<?> getDevice(@PathVariable String deviceId) {
-                try {
-                        String amapiResponse = amapiService.getDevice(ENTERPRISE_NAME, deviceId);
-                        return ResponseEntity.ok(amapiResponse);
-                } catch (Exception e) {
-                        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                             .body(Map.of("message", "Device not found in AMAPI"));
-                }
+                return enrollmentService.getDeviceAsResponse(deviceId)
+                                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                                .body(Map.of("message", "Device not found")));
         }
 
         @PostMapping("/devices/{deviceId}/heartbeat")
@@ -173,13 +168,12 @@ public class DeviceController {
                                         .isRead(false).severity("WARNING").createdAt(LocalDateTime.now()).build());
                 }
 
-                }
-
                 // Sync AMAPI dynamically!
                 try {
                         DevicePolicy policy = policyRepo.findByDeviceId(deviceId).orElse(null);
-                        amapiService.patchDevicePolicy(ENTERPRISE_NAME, "policy1", policy, appRestrictionRepo.findByDeviceId(deviceId));
-                } catch(Exception e) {
+                        amapiService.patchDevicePolicy(enterpriseName, amapiPolicyId, policy,
+                                        appRestrictionRepo.findByDeviceId(deviceId));
+                } catch (Exception e) {
                         log.error("Failed to sync app restriction to AMAPI", e);
                 }
 
@@ -239,6 +233,9 @@ public class DeviceController {
                                         .alertType(val ? "CAMERA_DISABLED" : "CAMERA_ENABLED").message(desc)
                                         .isRead(false).severity("WARNING").createdAt(LocalDateTime.now()).build());
                 }
+                if (body.containsKey("screenLockRequired")) {
+                        policy.setScreenLockRequired(Boolean.parseBoolean(body.get("screenLockRequired").toString()));
+                }
                 if (body.containsKey("installBlocked"))
                         policy.setInstallBlocked(Boolean.parseBoolean(body.get("installBlocked").toString()));
                 if (body.containsKey("uninstallBlocked"))
@@ -252,8 +249,9 @@ public class DeviceController {
 
                 // Sync AMAPI dynamically!
                 try {
-                        amapiService.patchDevicePolicy(ENTERPRISE_NAME, "policy1", policy, appRestrictionRepo.findByDeviceId(deviceId));
-                } catch(Exception e) {
+                        amapiService.patchDevicePolicy(enterpriseName, amapiPolicyId, policy,
+                                        appRestrictionRepo.findByDeviceId(deviceId));
+                } catch (Exception e) {
                         log.error("Failed to sync policy to AMAPI", e);
                 }
 
@@ -267,8 +265,8 @@ public class DeviceController {
         @PostMapping("/devices/{deviceId}/lock")
         public ResponseEntity<?> lockDevice(@PathVariable String deviceId) {
                 try {
-                        amapiService.issueCommand(ENTERPRISE_NAME, deviceId, "LOCK");
-                } catch(Exception e) {
+                        amapiService.issueCommand(enterpriseName, deviceId, "LOCK");
+                } catch (Exception e) {
                         log.error("AMAPI Lock failed", e);
                         return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
                 }
@@ -298,8 +296,8 @@ public class DeviceController {
         @Transactional
         public ResponseEntity<?> wipeDevice(@PathVariable String deviceId) {
                 try {
-                        amapiService.issueCommand(ENTERPRISE_NAME, deviceId, "WIPE_DATA");
-                } catch(Exception e) {
+                        amapiService.issueCommand(enterpriseName, deviceId, "WIPE_DATA");
+                } catch (Exception e) {
                         log.error("AMAPI Wipe failed", e);
                         return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
                 }
@@ -532,7 +530,8 @@ public class DeviceController {
         @PostMapping("/devices/{deviceId}/sign-out")
         public ResponseEntity<?> signOutDevice(@PathVariable String deviceId) {
                 // 1. Find the device and set status to OFFLINE.
-                // Also backdate lastSeenAt so heartbeat reconciler doesn't immediately restore ACTIVE.
+                // Also backdate lastSeenAt so heartbeat reconciler doesn't immediately restore
+                // ACTIVE.
                 Device device = deviceRepo.findByDeviceId(deviceId)
                                 .orElse(null);
                 if (device == null) {
