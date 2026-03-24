@@ -1,0 +1,10 @@
+target/
+.git/
+.idea/
+*.iml
+build_output*.txt
+mvn_output.txt
+enterprise_response.json
+policy_response.json
+token_response.json
+effective-pom
