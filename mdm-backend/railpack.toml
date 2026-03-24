@@ -1,0 +1,8 @@
+# Railpack build configuration for mdm-backend (Spring Boot / Maven)
+#
+# MDM_API_PASSWORD, MDM_API_USERNAME, AMAPI_ENTERPRISE_NAME, AMAPI_POLICY_ID,
+# and GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 are runtime-only environment variables.
+# They are NOT required at build time and must NOT be declared as build secrets.
+
+[build]
+# No build-time secrets — all sensitive variables are injected at runtime by Railway.
