@@ -9,98 +9,30 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 
 /**
- * Generates QR code payloads for Android Device Owner provisioning.
- *
- * The QR code follows the Android Enterprise provisioning format:
- *   - The JSON payload contains provisioning extras that the Android setup wizard
- *     reads during factory-reset provisioning (tap QR at "Welcome" screen 6 times).
- *   - Keys are the standard `android.app.extra.PROVISIONING_*` extras.
- *
- * @see <a href="https://developer.android.com/work/dpc/build-dpc#qr_code_method">
- *   Android Device Owner QR provisioning</a>
+ * Generates QR payloads for AMAPI enrollment token flows.
  */
 object QrProvisioningHelper {
 
-    private const val KEY_ADMIN_COMPONENT =
-        "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME"
-    private const val KEY_PACKAGE_DOWNLOAD_LOCATION =
-        "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION"
-    private const val KEY_PACKAGE_CHECKSUM =
-        "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM"
-    private const val KEY_SKIP_ENCRYPTION =
-        "android.app.extra.PROVISIONING_SKIP_ENCRYPTION"
-    private const val KEY_WIFI_SSID =
-        "android.app.extra.PROVISIONING_WIFI_SSID"
-    private const val KEY_WIFI_PASSWORD =
-        "android.app.extra.PROVISIONING_WIFI_PASSWORD"
-    private const val KEY_WIFI_SECURITY_TYPE =
-        "android.app.extra.PROVISIONING_WIFI_SECURITY_TYPE"
-    private const val KEY_LEAVE_ALL_SYSTEM_APPS =
-        "android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED"
-    private const val KEY_LOCALE =
-        "android.app.extra.PROVISIONING_LOCALE"
-    private const val KEY_TIME_ZONE =
-        "android.app.extra.PROVISIONING_TIME_ZONE"
-
-    // Default values — should be configured by the admin via Settings screen
-    private const val DEFAULT_ADMIN_COMPONENT =
-        "com.devora.devicemanager/com.devora.devicemanager.AdminReceiver"
-    private const val DEFAULT_APK_DOWNLOAD_URL =
-        "https://devora-backend-server-production.up.railway.app/downloads/devora-mdm-latest.apk"
-    private const val DEFAULT_CHECKSUM =
-        "Yt2Tge3QafLH9fVKefkCZmQtHLaRqHru2m434-IfktE"
-
     /**
-     * Builds the JSON payload for a Device Owner provisioning QR code.
-     *
-     * @param adminComponent   Fully-qualified ComponentName (package/class)
-     * @param apkDownloadUrl   URL where the setup wizard downloads the DPC APK
-     * @param checksum         SHA-256 checksum of the APK (Base64 URL-safe)
-     * @param skipEncryption   Whether to skip forcing device encryption
-     * @param wifiSsid         Optional Wi-Fi SSID to auto-connect during provisioning
-     * @param wifiPassword     Optional Wi-Fi password
-     * @param wifiSecurityType Optional Wi-Fi security (e.g. "WPA", "WEP")
-     * @param enrollmentToken  Custom enrollment token embedded in the payload
+     * Builds an AMAPI enrollment QR payload that includes the enrollment token.
      */
     fun buildProvisioningPayload(
-        adminComponent: String = DEFAULT_ADMIN_COMPONENT,
-        apkDownloadUrl: String = DEFAULT_APK_DOWNLOAD_URL,
-        checksum: String = DEFAULT_CHECKSUM,
+        adminComponent: String = "",
+        apkDownloadUrl: String = "",
+        checksum: String = "",
         skipEncryption: Boolean = true,
         wifiSsid: String? = null,
         wifiPassword: String? = null,
         wifiSecurityType: String? = null,
         enrollmentToken: String? = null
     ): String {
-        val payload = linkedMapOf<String, Any>()
+        val payload = linkedMapOf<String, Any>(
+            "provider" to "AMAPI",
+            "type" to "ENROLLMENT_TOKEN"
+        )
 
-        // Required: Admin component in "package/class" format
-        payload[KEY_ADMIN_COMPONENT] = adminComponent
-
-        // Required: Where to download the DPC APK from
-        payload[KEY_PACKAGE_DOWNLOAD_LOCATION] = apkDownloadUrl
-
-        // Required: SHA-256 checksum to verify APK integrity
-        payload[KEY_PACKAGE_CHECKSUM] = checksum
-
-        // Optional: Skip encryption to speed up provisioning (development / unmanaged devices)
-        payload[KEY_SKIP_ENCRYPTION] = skipEncryption
-
-        // Optional: Pre-configure Wi-Fi so the device can download the DPC APK
-        if (!wifiSsid.isNullOrBlank()) {
-            payload[KEY_WIFI_SSID] = wifiSsid
-            if (!wifiPassword.isNullOrBlank()) {
-                payload[KEY_WIFI_PASSWORD] = wifiPassword
-                payload[KEY_WIFI_SECURITY_TYPE] = wifiSecurityType ?: "WPA"
-            }
-        }
-
-        // Keep all system apps enabled during provisioning
-        payload[KEY_LEAVE_ALL_SYSTEM_APPS] = true
-
-        // Custom: Include enrollment token so the DPC can read it after provisioning
         if (!enrollmentToken.isNullOrBlank()) {
-            payload["com.devora.devicemanager.ENROLLMENT_TOKEN"] = enrollmentToken
+            payload["enrollmentToken"] = enrollmentToken.trim()
         }
 
         return GsonBuilder().setPrettyPrinting().create().toJson(payload)
@@ -156,20 +88,11 @@ object QrProvisioningHelper {
     }
 
     /**
-     * Generates a full Device Owner provisioning QR bitmap.
-     * This QR contains the complete JSON payload that Android's setup wizard reads
-     * after factory reset (tap "Welcome" screen 6 times to trigger QR scanner).
-     *
-     * The setup wizard will:
-     *  1. Connect to Wi-Fi (if provided)
-     *  2. Download the DPC APK from the specified URL
-     *  3. Verify the APK checksum
-     *  4. Install the APK and set it as Device Owner
-     *  5. Launch the app via onProfileProvisioningComplete()
+      * Generates an AMAPI enrollment payload QR.
      */
     fun generateDeviceOwnerProvisioningQr(
-        apkDownloadUrl: String = DEFAULT_APK_DOWNLOAD_URL,
-        checksum: String = DEFAULT_CHECKSUM,
+          apkDownloadUrl: String = "",
+          checksum: String = "",
         wifiSsid: String? = null,
         wifiPassword: String? = null,
         wifiSecurityType: String? = null,

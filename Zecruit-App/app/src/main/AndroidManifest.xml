@@ -48,12 +48,6 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
-            <!-- Handle post-provisioning launch -->
-            <intent-filter>
-                <action android:name="android.app.action.PROVISION_MANAGED_DEVICE" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
         </activity>
 
         <!-- Blocked app overlay — shown when a restricted app is detected -->
@@ -64,23 +58,6 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleTask" />
-
-        <!-- Device Admin / Device Owner receiver -->
-        <receiver
-            android:name=".AdminReceiver"
-            android:permission="android.permission.BIND_DEVICE_ADMIN"
-            android:exported="true">
-            <meta-data
-                android:name="android.app.device_admin"
-                android:resource="@xml/device_admin" />
-            <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
-                <action android:name="android.app.action.DEVICE_ADMIN_DISABLED"/>
-                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE"/>
-                <action android:name="android.app.action.LOCK_TASK_ENTERING"/>
-                <action android:name="android.app.action.LOCK_TASK_EXITING"/>
-            </intent-filter>
-        </receiver>
 
         <!-- Foreground heartbeat service — keeps device status live every 30s -->
         <service

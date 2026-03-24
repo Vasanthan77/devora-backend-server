@@ -31,7 +31,6 @@ import com.devora.devicemanager.ui.screens.policies.PoliciesScreen
 import com.devora.devicemanager.ui.screens.appinventory.DeviceAppInventoryListScreen
 import com.devora.devicemanager.ui.screens.appinventory.DeviceAppListScreen
 import com.devora.devicemanager.ui.viewmodel.AuthViewModel
-import com.devora.devicemanager.AdminReceiver
 import com.devora.devicemanager.enrollment.EnrollmentRepository
 
 @Composable

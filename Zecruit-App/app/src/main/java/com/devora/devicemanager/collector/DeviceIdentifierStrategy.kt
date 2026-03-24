@@ -2,8 +2,6 @@ package com.devora.devicemanager.collector
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.admin.DevicePolicyManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -142,9 +140,7 @@ object DeviceIdentifierStrategy {
     // ── Helpers ────────────────────────────────────────────────
 
     private fun isDeviceOwner(context: Context): Boolean {
-        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
-            ?: return false
-        return dpm.isDeviceOwnerApp(context.packageName)
+        return AdminReceiver.isDeviceOwner(context)
     }
 
     private fun hasReadPhoneStatePermission(context: Context): Boolean {
