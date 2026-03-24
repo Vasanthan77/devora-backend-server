@@ -22,10 +22,10 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${mdm.auth.device.username:mdm-device}")
+    @Value("${MDM_API_USERNAME:mdm-device}")
     private String apiUsername;
 
-    @Value("${mdm.auth.device.password:SecurePass123}")
+    @Value("${MDM_API_PASSWORD:SecurePass123}")
     private String apiPassword;
 
     @Bean
