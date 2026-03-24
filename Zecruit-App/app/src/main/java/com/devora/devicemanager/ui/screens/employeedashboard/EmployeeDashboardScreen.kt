@@ -97,8 +97,6 @@ import com.devora.devicemanager.network.AppInventoryItem
 import com.devora.devicemanager.session.SessionManager
 import com.devora.devicemanager.sync.DeviceInfoSyncWorker
 import com.devora.devicemanager.sync.HeartbeatService
-import com.devora.devicemanager.sync.LocationSyncWorker
-import com.devora.devicemanager.sync.PolicySyncWorker
 import com.devora.devicemanager.sync.SyncManager
 import com.devora.devicemanager.ui.components.DevoraCard
 import com.devora.devicemanager.ui.components.SectionHeader
@@ -404,17 +402,16 @@ fun EmployeeDashboardScreen(
                                         ?.takeIf { it.isNotBlank() }
                                         ?: "unknown"
 
-                                    // Immediate full sync (apps + device info), then force location/policy refresh.
+                                    // Immediate full sync, then ensure heartbeat/command processing is active.
                                     val syncResult = SyncManager.syncDeviceData(context, employeeId)
                                     DeviceInfoSyncWorker.scheduleNow(context)
-                                    LocationSyncWorker.scheduleNow(context)
-                                    PolicySyncWorker.scheduleNow(context)
+                                    HeartbeatService.start(context)
 
                                     loadActivities()
                                     loadAppInventory()
 
                                     val msg = if (syncResult.success) {
-                                        "Synced latest apps, Android info, and location"
+                                        "Synced latest apps and Android info"
                                     } else {
                                         "Sync sent. Some data may update shortly"
                                     }

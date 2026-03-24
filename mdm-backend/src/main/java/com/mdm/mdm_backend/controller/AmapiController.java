@@ -10,7 +10,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -19,6 +26,7 @@ import java.util.Map;
 public class AmapiController {
 
     private final AmapiService amapiService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${amapi.enterprise-name:enterprises/LC01oh6rj0}")
     private String defaultEnterpriseName;
@@ -62,10 +70,115 @@ public class AmapiController {
     public ResponseEntity<?> setPubSubTopic(
             @RequestParam String enterpriseName,
             @RequestParam String projectId,
-            @RequestParam String topicName) {
+            @RequestParam String topicName,
+            @RequestParam(required = false) String notificationTypes) {
         try {
-            String result = amapiService.updateEnterprisePubsubTopic(enterpriseName, projectId, topicName);
+            List<String> parsedTypes = null;
+            if (notificationTypes != null && !notificationTypes.isBlank()) {
+                parsedTypes = Arrays.stream(notificationTypes.split(","))
+                        .map(String::trim)
+                        .filter(type -> !type.isBlank())
+                        .toList();
+            }
+
+            String result = amapiService.updateEnterprisePubsubTopic(enterpriseName, projectId, topicName, parsedTypes);
             return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/enterprise")
+    public ResponseEntity<?> getEnterprise(@RequestParam(required = false) String enterpriseName) {
+        try {
+            String resolvedEnterprise = enterpriseName != null && !enterpriseName.isBlank()
+                    ? enterpriseName
+                    : defaultEnterpriseName;
+            String result = amapiService.getEnterprise(resolvedEnterprise);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/enterprise/upgrade/eligibility")
+    public ResponseEntity<?> getUpgradeEligibility(@RequestParam(required = false) String enterpriseName) {
+        try {
+            String resolvedEnterprise = enterpriseName != null && !enterpriseName.isBlank()
+                    ? enterpriseName
+                    : defaultEnterpriseName;
+
+            String rawEnterprise = amapiService.getEnterprise(resolvedEnterprise);
+            String enterpriseType = extractEnterpriseType(rawEnterprise);
+            boolean eligible = "MANAGED_GOOGLE_PLAY_ACCOUNTS_ENTERPRISE".equals(enterpriseType);
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("enterpriseName", resolvedEnterprise);
+            response.put("enterpriseType", enterpriseType == null ? "UNKNOWN" : enterpriseType);
+            response.put("eligibleForUpgrade", eligible);
+            response.put("nextAction", eligible
+                    ? "Call /api/amapi/enterprise/upgrade-url and show the URL to authorized IT admins."
+                    : "Enterprise already upgraded or created as managed Google domain.");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/enterprise/upgrade-url")
+    public ResponseEntity<?> generateEnterpriseUpgradeUrl(
+            @RequestParam(required = false) String enterpriseName,
+            @RequestBody(required = false) Map<String, Object> body) {
+        try {
+            String resolvedEnterprise = enterpriseName != null && !enterpriseName.isBlank()
+                    ? enterpriseName
+                    : defaultEnterpriseName;
+
+            String adminEmail = body != null && body.get("adminEmail") != null
+                    ? body.get("adminEmail").toString()
+                    : null;
+
+            List<String> allowedDomains = new ArrayList<>();
+            if (body != null && body.get("allowedDomains") instanceof List<?> domains) {
+                for (Object domain : domains) {
+                    if (domain != null) {
+                        String asText = domain.toString().trim();
+                        if (!asText.isBlank()) {
+                            allowedDomains.add(asText);
+                        }
+                    }
+                }
+            }
+
+            String result = amapiService.generateEnterpriseUpgradeUrl(
+                    resolvedEnterprise,
+                    allowedDomains.isEmpty() ? Collections.emptyList() : allowedDomains,
+                    adminEmail);
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/enterprise/upgrade/status")
+    public ResponseEntity<?> getUpgradeStatus(@RequestParam(required = false) String enterpriseName) {
+        try {
+            String resolvedEnterprise = enterpriseName != null && !enterpriseName.isBlank()
+                    ? enterpriseName
+                    : defaultEnterpriseName;
+
+            String rawEnterprise = amapiService.getEnterprise(resolvedEnterprise);
+            String enterpriseType = extractEnterpriseType(rawEnterprise);
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("enterpriseName", resolvedEnterprise);
+            response.put("enterpriseType", enterpriseType == null ? "UNKNOWN" : enterpriseType);
+            response.put("upgradeCompleted", "MANAGED_GOOGLE_DOMAIN".equals(enterpriseType));
+            response.put("rawEnterprise", rawEnterprise);
+
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
@@ -158,6 +271,24 @@ public class AmapiController {
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    private String extractEnterpriseType(String enterpriseJson) {
+        if (enterpriseJson == null || enterpriseJson.isBlank()) {
+            return null;
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(enterpriseJson);
+            JsonNode enterpriseTypeNode = root.path("enterpriseType");
+            if (enterpriseTypeNode.isMissingNode() || enterpriseTypeNode.isNull()) {
+                return null;
+            }
+            String value = enterpriseTypeNode.asText();
+            return value == null || value.isBlank() ? null : value;
+        } catch (Exception ex) {
+            return null;
         }
     }
 }

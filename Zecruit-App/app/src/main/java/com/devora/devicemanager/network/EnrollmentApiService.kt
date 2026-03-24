@@ -11,6 +11,7 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 import okhttp3.OkHttpClient
+import okhttp3.Credentials
 import okhttp3.logging.HttpLoggingInterceptor
 import java.util.concurrent.TimeUnit
 
@@ -550,7 +551,16 @@ object RetrofitClient {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
+    private const val API_USERNAME = "mdm-device"
+    private const val API_PASSWORD = "SecurePass123"
+
     private val okHttpClient = OkHttpClient.Builder()
+        .addInterceptor { chain ->
+            val requestWithAuth = chain.request().newBuilder()
+                .header("Authorization", Credentials.basic(API_USERNAME, API_PASSWORD))
+                .build()
+            chain.proceed(requestWithAuth)
+        }
         .addInterceptor(loggingInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)

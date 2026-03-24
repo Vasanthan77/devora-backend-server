@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.devora.devicemanager.sync.PolicySyncWorker
+import com.devora.devicemanager.sync.HeartbeatService
 
 /**
  * Reschedules command polling after reboot/app update so remote actions keep working
@@ -26,7 +26,7 @@ class DeviceBootReceiver : BroadcastReceiver() {
             return
         }
 
-        Log.d(TAG, "Received $action, scheduling policy sync now")
-        PolicySyncWorker.scheduleNow(context)
+        Log.d(TAG, "Received $action, starting heartbeat/command service")
+        HeartbeatService.start(context)
     }
 }

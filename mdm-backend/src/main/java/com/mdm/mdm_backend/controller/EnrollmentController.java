@@ -1,7 +1,5 @@
 package com.mdm.mdm_backend.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mdm.mdm_backend.model.dto.DeviceResponse;
 import com.mdm.mdm_backend.model.dto.EnrollRequest;
 import com.mdm.mdm_backend.model.dto.EnrollmentRequest;
@@ -15,6 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.HashMap;
 import java.util.List;
@@ -33,7 +33,7 @@ public class EnrollmentController {
     @Value("${amapi.enterprise-name:enterprises/LC01oh6rj0}")
     private String enterpriseName;
 
-    @Value("${amapi.default-policy-id:policy1}")
+    @Value("${amapi.policy-id:policy1}")
     private String defaultPolicyId;
 
     /**

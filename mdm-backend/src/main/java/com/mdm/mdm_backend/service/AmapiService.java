@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.List;
 
 @Service
 public class AmapiService {
@@ -100,6 +101,12 @@ public class AmapiService {
 
     public String updateEnterprisePubsubTopic(String enterpriseName, String projectId, String topicName)
             throws Exception {
+        return updateEnterprisePubsubTopic(enterpriseName, projectId, topicName, null);
+        }
+
+        public String updateEnterprisePubsubTopic(String enterpriseName, String projectId, String topicName,
+            List<String> enabledNotificationTypes)
+            throws Exception {
         String accessToken = getAccessToken();
         String url = "https://androidmanagement.googleapis.com/v1/" + enterpriseName;
 
@@ -109,11 +116,20 @@ public class AmapiService {
         headers.set("X-HTTP-Method-Override", "PATCH");
 
         String fullTopicName = "projects/" + projectId + "/topics/" + topicName;
-        String requestBody = String.format("""
-                {
-                  "pubsubTopic": "%s"
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode rootNode = mapper.createObjectNode();
+        rootNode.put("pubsubTopic", fullTopicName);
+
+        if (enabledNotificationTypes != null && !enabledNotificationTypes.isEmpty()) {
+            ArrayNode notifications = rootNode.putArray("enabledNotificationTypes");
+            for (String type : enabledNotificationTypes) {
+                if (type != null && !type.isBlank()) {
+                    notifications.add(type.trim());
                 }
-                """, fullTopicName);
+            }
+        }
+
+        String requestBody = mapper.writeValueAsString(rootNode);
 
         HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
@@ -122,6 +138,59 @@ public class AmapiService {
             return response.getBody();
         } else {
             throw new RuntimeException("Failed to update enterprise: " + response.getBody());
+        }
+    }
+
+    public String getEnterprise(String enterpriseName) throws Exception {
+        String accessToken = getAccessToken();
+        String url = "https://androidmanagement.googleapis.com/v1/" + enterpriseName;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return response.getBody();
+        } else {
+            throw new RuntimeException("Failed to get enterprise: " + response.getBody());
+        }
+    }
+
+    public String generateEnterpriseUpgradeUrl(String enterpriseName, List<String> allowedDomains, String adminEmail)
+            throws Exception {
+        String accessToken = getAccessToken();
+        String url = "https://androidmanagement.googleapis.com/v1/" + enterpriseName + ":generateEnterpriseUpgradeUrl";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode body = mapper.createObjectNode();
+
+        if (allowedDomains != null && !allowedDomains.isEmpty()) {
+            ArrayNode domains = body.putArray("allowedDomains");
+            for (String domain : allowedDomains) {
+                if (domain != null && !domain.isBlank()) {
+                    domains.add(domain.trim());
+                }
+            }
+        }
+
+        if (adminEmail != null && !adminEmail.isBlank()) {
+            body.put("adminEmail", adminEmail.trim());
+        }
+
+        String requestBody = mapper.writeValueAsString(body);
+        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return response.getBody();
+        } else {
+            throw new RuntimeException("Failed to generate enterprise upgrade URL: " + response.getBody());
         }
     }
 

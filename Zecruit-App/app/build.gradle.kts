@@ -95,6 +95,9 @@ dependencies {
     implementation("org.osmdroid:osmdroid-android:6.1.18")
     implementation("org.osmdroid:osmdroid-wms:6.1.18")
 
+    // Firebase Cloud Messaging
+    implementation("com.google.firebase:firebase-messaging:24.1.2")
+
     // Coroutines Task await extensions (FusedLocationProviderClient)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 

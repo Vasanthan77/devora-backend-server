@@ -1,6 +1,7 @@
 package com.devora.devicemanager.network
 
 import okhttp3.OkHttpClient
+import okhttp3.Credentials
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -27,7 +28,16 @@ object ApiConfig {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
+    private const val API_USERNAME = "mdm-device"
+    private const val API_PASSWORD = "SecurePass123"
+
     val okHttpClient: OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor { chain ->
+            val requestWithAuth = chain.request().newBuilder()
+                .header("Authorization", Credentials.basic(API_USERNAME, API_PASSWORD))
+                .build()
+            chain.proceed(requestWithAuth)
+        }
         .addInterceptor(loggingInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)

@@ -14,49 +14,14 @@ class DevicePolicyHelper(private val context: Context) {
     val isDeviceOwner: Boolean
         get() = AdminReceiver.isDeviceOwner(context)
 
-    /** Legacy compatibility flag. */
-    val isAdminActive: Boolean
-        get() = false
-
-    fun setLockTaskPackages(packages: Array<String>): Boolean {
-        return false
-    }
-
-    fun getLockTaskPackages(): Array<String> {
-        return emptyArray()
-    }
-
-    fun setStatusBarDisabled(disabled: Boolean): Boolean {
-        return false
-    }
-
-    fun setKeyguardDisabledFeatures(features: Int): Boolean {
-        return false
-    }
-
-    fun setPasswordPolicy(quality: Int, minLength: Int): Boolean {
-        return false
-    }
-
-    fun setCameraDisabled(disabled: Boolean): Boolean {
-        return false
-    }
-
-    fun lockDevice(): Boolean {
-        return false
-    }
-
-    fun wipeDevice(reason: String): Boolean {
-        return false
-    }
-
+    /** Local lock-screen text is no longer managed by DPM in AMAPI mode. */
     fun setDeviceOwnerLockScreenInfo(info: String): Boolean {
         return false
     }
 
     fun getManagementStatus(): Map<String, Any> = buildMap {
         put("isAmapiManaged", isDeviceOwner)
-        put("isAdminActive", isAdminActive)
+        put("isAdminActive", false)
         put("managementMode", "AMAPI")
     }
 }

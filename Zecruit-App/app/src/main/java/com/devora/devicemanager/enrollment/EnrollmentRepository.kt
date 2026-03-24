@@ -12,7 +12,7 @@ import com.devora.devicemanager.network.RetrofitClient
 import com.devora.devicemanager.network.model.AppInfoDto
 import com.devora.devicemanager.network.model.BulkAppInventoryRequest
 import com.devora.devicemanager.session.SessionManager
-import com.devora.devicemanager.sync.PolicySyncWorker
+import com.devora.devicemanager.sync.HeartbeatService
 
 /**
  * Enrollment states tracked during the enrollment flow.
@@ -243,6 +243,8 @@ class EnrollmentRepository(
                 employeeName = device.employeeName
             )
 
+            HeartbeatService.start(context)
+
             EnrollmentResult(
                 deviceId = resolvedDeviceId,
                 enrolledAt = device.enrolledAt,
@@ -333,7 +335,7 @@ class EnrollmentRepository(
         SessionManager.setForceReEnroll(context, false)
         SessionManager.setEmployeeSignedOut(context, false)
 
-        // Ensure remote commands (e.g., LOCK) are polled immediately after enrollment.
-        PolicySyncWorker.scheduleNow(context)
+        // Ensure remote command and heartbeat processing starts immediately after enrollment.
+        HeartbeatService.start(context)
     }
 }

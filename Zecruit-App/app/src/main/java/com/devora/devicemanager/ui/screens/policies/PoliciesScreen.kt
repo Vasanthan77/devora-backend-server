@@ -1,6 +1,7 @@
 package com.devora.devicemanager.ui.screens.policies
 
 import com.devora.devicemanager.data.remote.RemoteDataSource
+import com.devora.devicemanager.network.PolicyUpdateRequest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -128,6 +129,8 @@ fun PoliciesScreen(
 
     var showSuccessDialog by remember { mutableStateOf(false) }
     var isApplying by remember { mutableStateOf(false) }
+    var lastApplySuccess by remember { mutableStateOf(0) }
+    var lastApplyTotal by remember { mutableStateOf(0) }
     var totalDevices by remember { mutableStateOf(0) }
     var violations by remember { mutableStateOf(0) }
     val lastUpdated = remember {
@@ -558,7 +561,47 @@ fun PoliciesScreen(
                         onClick = {
                             isApplying = true
                             scope.launch {
-                                delay(1000)
+                                val request = PolicyUpdateRequest(
+                                    cameraDisabled = cameraDisabled,
+                                    screenLockRequired = screenLockRequired,
+                                    installBlocked = unknownAppInstallBlocked,
+                                    uninstallBlocked = usbStorageBlocked,
+                                    locationTrackingEnabled = !wifiOnlyMode
+                                )
+
+                                var total = 0
+                                var success = 0
+                                try {
+                                    val devicesResponse = RemoteDataSource.getDeviceList()
+                                    val devices = if (devicesResponse.isSuccessful) {
+                                        devicesResponse.body().orEmpty()
+                                    } else {
+                                        emptyList()
+                                    }
+
+                                    total = devices.size
+                                    for (device in devices) {
+                                        val response = RemoteDataSource.updateDevicePolicy(device.deviceId, request)
+                                        if (response.isSuccessful) {
+                                            success++
+                                        }
+                                    }
+
+                                    lastApplyTotal = total
+                                    lastApplySuccess = success
+
+                                    if (total == 0) {
+                                        snackbarHostState.showSnackbar("No devices found for policy push")
+                                    } else {
+                                        snackbarHostState.showSnackbar("Policy pushed to $success/$total devices")
+                                    }
+                                } catch (e: Exception) {
+                                    lastApplyTotal = 0
+                                    lastApplySuccess = 0
+                                    snackbarHostState.showSnackbar("Policy push failed: ${e.message}")
+                                }
+
+                                delay(300)
                                 isApplying = false
                                 showSuccessDialog = true
                             }
@@ -634,7 +677,11 @@ fun PoliciesScreen(
                 text = {
                     Column {
                         Text(
-                            text = "Pushed to 3 devices",
+                            text = if (lastApplyTotal > 0) {
+                                "Pushed to $lastApplySuccess/$lastApplyTotal devices"
+                            } else {
+                                "Policy push attempted"
+                            },
                             fontFamily = PlusJakartaSans,
                             fontSize = 14.sp
                         )

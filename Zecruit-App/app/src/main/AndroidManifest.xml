@@ -65,6 +65,14 @@
             android:foregroundServiceType="dataSync"
             android:exported="false" />
 
+        <service
+            android:name=".sync.DeviceCommandFirebaseService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <!-- Package install/update monitor for MDM -->
         <receiver
             android:name=".receiver.PackageChangeReceiver"

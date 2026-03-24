@@ -50,26 +50,40 @@ public class WebhookController {
                 return ResponseEntity.badRequest().body("Invalid payload");
             }
 
+            @SuppressWarnings("unchecked")
+            Map<String, Object> attributes = (Map<String, Object>) message.get("attributes");
+            String notificationType = attributes != null
+                    ? textOrDefault(attributes, "notificationType", "UNKNOWN")
+                    : "UNKNOWN";
+
             // The actual device event is Base64 encoded in the "data" field
             String base64Data = (String) message.get("data");
             String decodedEventStr = new String(Base64.getDecoder().decode(base64Data));
 
             @SuppressWarnings("unchecked")
             Map<String, Object> amapiEvent = objectMapper.readValue(decodedEventStr, Map.class);
-            String eventType = textOrDefault(amapiEvent, "type", "UNKNOWN");
-            String deviceId = textOrDefault(amapiEvent, "deviceId", "UNKNOWN");
+            String resourceName = textOrDefault(amapiEvent, "name", "UNKNOWN");
 
-            log.info("Received AMAPI Event [Type: {}] for Device [{}]", eventType, deviceId);
-
-            // Log detailed status if it's a STATUS_REPORT
-            if ("STATUS_REPORT".equals(eventType)) {
-                log.info("- Battery: {}%", intOrDefault(amapiEvent, "batteryLevel", 0));
-                log.info("- Network: {}", textOrDefault(amapiEvent, "networkType", "UNKNOWN"));
-                log.info("- Applied Policy: {}", textOrDefault(amapiEvent, "appliedPolicyName", "UNKNOWN"));
-                // Here you can actively update your local DeviceRepository based on this
-                // heart-beat style data!
-            } else if ("ENROLLMENT_REPORT".equals(eventType)) {
-                log.info("Device {} successfully ENROLLED!", deviceId);
+            if ("test".equalsIgnoreCase(notificationType)) {
+                log.info("Received AMAPI Pub/Sub test message for verification.");
+            } else if ("ENTERPRISE_UPGRADE".equals(notificationType)) {
+                String enterprise = textOrDefault(amapiEvent, "enterprise", "UNKNOWN");
+                String upgradeState = textOrDefault(amapiEvent, "upgradeState", "UNKNOWN");
+                log.info("AMAPI enterprise upgrade event received. enterprise={}, upgradeState={}", enterprise,
+                        upgradeState);
+            } else if ("STATUS_REPORT".equals(notificationType)) {
+                log.info("AMAPI status report received. resource={}, policyName={}, state={}",
+                        resourceName,
+                        textOrDefault(amapiEvent, "appliedPolicyName", "UNKNOWN"),
+                        textOrDefault(amapiEvent, "state", "UNKNOWN"));
+            } else if ("ENROLLMENT".equals(notificationType)) {
+                log.info("AMAPI enrollment event received. resource={}", resourceName);
+            } else if ("COMMAND".equals(notificationType)) {
+                log.info("AMAPI command event received. operation={}, done={}",
+                        resourceName,
+                        textOrDefault(amapiEvent, "done", "UNKNOWN"));
+            } else {
+                log.info("AMAPI event received. notificationType={}, resource={}", notificationType, resourceName);
             }
 
             // Google Pub/Sub requires you to return a 200 OK immediately
