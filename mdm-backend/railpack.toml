@@ -1,0 +1,15 @@
+# Railpack build configuration for mdm-backend
+# Declares which environment variables are runtime-only so Railpack does not
+# attempt to resolve them as build-time secrets.
+
+[deploy]
+# Variables that must be present at runtime but are NOT needed during the build.
+# Listing them here prevents Railpack from treating non-empty Spring Boot
+# property defaults (${VAR:fallback}) as secrets to resolve at build time.
+runtimeEnvVars = [
+  "MDM_API_USERNAME",
+  "MDM_API_PASSWORD",
+  "AMAPI_ENTERPRISE_NAME",
+  "AMAPI_POLICY_ID",
+  "GOOGLE_SERVICE_ACCOUNT_JSON_BASE64",
+]
