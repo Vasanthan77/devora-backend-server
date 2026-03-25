@@ -35,3 +35,7 @@ build/
 .git_inner_backup/
 
 src/main/resources/service-account.json
+
+# Generated local AMAPI enrollment payloads (contain short-lived secrets)
+latest_amapi_qrcode.json
+latest_amapi_qrcode_poco_compat.json
