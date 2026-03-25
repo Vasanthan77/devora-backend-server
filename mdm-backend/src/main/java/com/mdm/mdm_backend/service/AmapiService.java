@@ -322,7 +322,7 @@ public class AmapiService {
                 {
                   "policyName": "%s",
                   "duration": "86400s",
-                  "allowPersonalUsage": "PERSONAL_USAGE_DISALLOWED",
+                                    "allowPersonalUsage": "PERSONAL_USAGE_ALLOWED",
                   "oneTimeOnly": false
                 }
                 """, policyName);
