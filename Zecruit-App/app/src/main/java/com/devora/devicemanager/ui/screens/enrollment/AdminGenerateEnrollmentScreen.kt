@@ -230,6 +230,7 @@ fun AdminGenerateEnrollmentScreen(
     var isRevoking by remember { mutableStateOf(false) }
     var showPayload by remember { mutableStateOf(false) }
     var showAppQrDialog by remember { mutableStateOf(false) }
+    var generatedQrPayload by rememberSaveable { mutableStateOf("") }
     var isLoadingSessions by remember { mutableStateOf(false) }
     var sessionsError by remember { mutableStateOf<String?>(null) }
     var sessionsRefreshTick by remember { mutableStateOf(0) }
@@ -252,9 +253,11 @@ fun AdminGenerateEnrollmentScreen(
     val inputBg = if (isDark) DarkBgElevated else BgElevated
 
     val activeEnrollments = remember { mutableStateListOf<EnrollmentSession>() }
-    val provisioningQrBitmap: Bitmap? = remember(generatedToken) {
-        if (generatedToken.isBlank()) {
+    val provisioningQrBitmap: Bitmap? = remember(generatedToken, generatedQrPayload) {
+        if (generatedToken.isBlank() && generatedQrPayload.isBlank()) {
             null
+        } else if (generatedQrPayload.isNotBlank()) {
+            QrProvisioningHelper.generateQrBitmap(generatedQrPayload)
         } else {
             QrProvisioningHelper.generateDeviceOwnerProvisioningQr(
                 enrollmentToken = generatedToken
@@ -509,8 +512,10 @@ fun AdminGenerateEnrollmentScreen(
                                         return@launch
                                     }
 
-                                    val newToken = response.body()!!.token
+                                    val body = response.body()!!
+                                    val newToken = body.token
                                     generatedToken = newToken
+                                    generatedQrPayload = body.qrCode?.trim().orEmpty()
                                     sessionsRefreshTick += 1
                                     screenState = "GENERATED"
                                 } catch (_: Exception) {
@@ -611,6 +616,7 @@ fun AdminGenerateEnrollmentScreen(
                             textColor = textColor,
                             onOpenQr = {
                                 generatedToken = session.token
+                                generatedQrPayload = ""
                                 employeeName = session.deviceLabel
                                 assignedEmployee = session.assignedEmployee.substringAfterLast("(").substringBefore(")")
                                 screenState = "GENERATED"
@@ -912,9 +918,13 @@ fun AdminGenerateEnrollmentScreen(
                         if (showPayload) {
                             Spacer(Modifier.height(8.dp))
 
-                            val jsonPayload = QrProvisioningHelper.buildProvisioningPayload(
-                                enrollmentToken = generatedToken
-                            )
+                            val jsonPayload = if (generatedQrPayload.isNotBlank()) {
+                                generatedQrPayload
+                            } else {
+                                QrProvisioningHelper.buildProvisioningPayload(
+                                    enrollmentToken = generatedToken
+                                )
+                            }
 
                             Box(
                                 modifier = Modifier

@@ -316,7 +316,8 @@ data class GenerateEnrollmentTokenRequest(
 data class GenerateEnrollmentTokenResponse(
     @SerializedName("token") val token: String,
     @SerializedName("employeeId") val employeeId: String?,
-    @SerializedName("expiresAt") val expiresAt: String?
+    @SerializedName("expiresAt") val expiresAt: String?,
+    @SerializedName("qrCode") val qrCode: String?
 )
 
 data class EnrollmentTokenResponse(

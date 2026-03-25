@@ -68,6 +68,7 @@ public class EnrollmentController {
             String token = node.path("value").asText("");
             String expiresAt = node.path("expirationTimestamp").asText(null);
             String tokenName = node.path("name").asText(null);
+            String qrCode = node.path("qrCode").asText(null);
 
                 Map<String, Object> payload = new HashMap<>();
                 payload.put("token", token);
@@ -75,6 +76,7 @@ public class EnrollmentController {
                 payload.put("employeeId", request.getEmployeeId());
                 payload.put("employeeName", request.getEmployeeName());
                 payload.put("expiresAt", expiresAt);
+                payload.put("qrCode", qrCode);
                 payload.put("status", "PENDING");
                 return ResponseEntity.ok(payload);
         } catch (Exception e) {
