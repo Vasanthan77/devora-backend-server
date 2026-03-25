@@ -201,6 +201,8 @@ public class AmapiService {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
         headers.setContentType(MediaType.APPLICATION_JSON);
+        // AMAPI policy updates are PATCH operations; using POST + override avoids HTTP client limitations.
+        headers.set("X-HTTP-Method-Override", "PATCH");
 
         String requestBody = """
                 {
@@ -223,7 +225,7 @@ public class AmapiService {
                 """;
 
         HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.PUT, entity, String.class);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
 
         if (response.getStatusCode().is2xxSuccessful()) {
             return response.getBody();
