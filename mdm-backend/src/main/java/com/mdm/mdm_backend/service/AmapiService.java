@@ -78,15 +78,12 @@ public class AmapiService {
         headers.setBearerAuth(accessToken);
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        String requestBody = """
-                {
-                  "enterpriseDisplayName": "Devora MDM",
-                  "signinDetails": [{
-                    "signinUrl": "https://yourdomain.com/enroll",
-                    "allowPersonalUsage": "PERSONAL_USAGE_DISALLOWED"
-                  }]
-                }
-                """;
+                // Use a minimal payload to create a managed Google Play enterprise.
+                String requestBody = """
+                                {
+                                    "enterpriseDisplayName": "Devora MDM"
+                                }
+                                """;
 
         HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
 
