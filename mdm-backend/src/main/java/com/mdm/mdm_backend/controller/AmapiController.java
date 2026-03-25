@@ -28,7 +28,7 @@ public class AmapiController {
     private final AmapiService amapiService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${amapi.enterprise-name:enterprises/LC01oh6rj0}")
+    @Value("${amapi.enterprise-name:enterprises/LC01uq3ykm}")
     private String defaultEnterpriseName;
 
     @Value("${amapi.policy-id:policy1}")
