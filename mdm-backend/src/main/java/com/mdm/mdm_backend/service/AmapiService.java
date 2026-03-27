@@ -110,12 +110,51 @@ public class AmapiService {
         }
     }
 
+    public String createSignupUrl(String callbackUrl) throws Exception {
+        String accessToken = getAccessToken();
+        String url = "https://androidmanagement.googleapis.com/v1/signupUrls?callbackUrl=" + callbackUrl;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<String> entity = new HttpEntity<>("{}", headers);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return response.getBody();
+        } else {
+            throw new RuntimeException("Failed to create signup URL: " + response.getBody());
+        }
+    }
+
+    public String createEnterpriseWithToken(String signupToken, String enterpriseToken) throws Exception {
+        String accessToken = getAccessToken();
+        String url = String.format("https://androidmanagement.googleapis.com/v1/enterprises?signupToken=%s&enterpriseToken=%s",
+                signupToken, enterpriseToken);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        String requestBody = "{}";
+
+        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return response.getBody();
+        } else {
+            throw new RuntimeException("Failed to create enterprise with token: " + response.getBody());
+        }
+    }
+
     public String updateEnterprisePubsubTopic(String enterpriseName, String projectId, String topicName)
             throws Exception {
         return updateEnterprisePubsubTopic(enterpriseName, projectId, topicName, null);
-        }
+    }
 
-        public String updateEnterprisePubsubTopic(String enterpriseName, String projectId, String topicName,
+    public String updateEnterprisePubsubTopic(String enterpriseName, String projectId, String topicName,
             List<String> enabledNotificationTypes)
             throws Exception {
         String accessToken = getAccessToken();

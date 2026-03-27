@@ -32,15 +32,6 @@ import java.util.Map;
 
 /**
  * AmapiController — the single "Command Center" for all device management.
- *
- * Handles:
- *   - Enterprise management (create, get, upgrade, list, cleanup)
- *   - Policy management (create, sync, patch)
- *   - Enrollment tokens
- *   - Device commands (lock, wipe, reboot) via AMAPI
- *   - App restrictions via AMAPI policy
- *   - Device policy (camera, screen lock, etc.) via AMAPI
- *   - Audit logging to local DB for every action
  */
 @RestController
 @RequestMapping("/api/amapi")
@@ -68,12 +59,32 @@ public class AmapiController {
     // ENTERPRISE MANAGEMENT
     // ════════════════════════════════════════
 
-    @PostMapping("/enterprise")
-    public ResponseEntity<?> createEnterprise() {
+    @GetMapping("/signup-url")
+    public ResponseEntity<?> createSignupUrl(@RequestParam(name = "callbackUrl", defaultValue = "https://localhost:8080/api/amapi/enterprise/callback") String callbackUrl) {
         try {
-            String result = amapiService.createEnterprise();
+            String result = amapiService.createSignupUrl(callbackUrl);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("Failed to create signup URL", e);
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/enterprise")
+    public ResponseEntity<?> createEnterprise(@RequestBody(required = false) Map<String, String> body) {
+        try {
+            String result;
+            if (body != null && body.containsKey("signupToken") && body.containsKey("enterpriseToken")) {
+                result = amapiService.createEnterpriseWithToken(body.get("signupToken"), body.get("enterpriseToken"));
+            } else if (body != null && body.containsKey("signupToken")) {
+                // Fallback if only signupToken exists (though usually both are needed)
+                result = amapiService.createEnterpriseWithToken(body.get("signupToken"), ""); 
+            } else {
+                result = amapiService.createEnterprise();
+            }
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Failed to create enterprise", e);
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }
@@ -257,7 +268,7 @@ public class AmapiController {
     }
 
     // ════════════════════════════════════════
-    // DEVICE LISTING (from AMAPI cloud)
+    // DEVICE LISTING
     // ════════════════════════════════════════
 
     @GetMapping("/devices")
@@ -327,8 +338,7 @@ public class AmapiController {
     }
 
     // ════════════════════════════════════════
-    // DEVICE COMMANDS — Lock, Wipe, Generic
-    // All powered by AMAPI + audit logged
+    // DEVICE COMMANDS
     // ════════════════════════════════════════
 
     @PostMapping("/devices/{deviceId}/lock")
@@ -337,15 +347,10 @@ public class AmapiController {
             @RequestParam(name = "enterpriseName", required = false) String enterpriseName) {
         try {
             String result = amapiService.issueCommand(resolve(enterpriseName), deviceId, "LOCK");
-
-            // Audit log
             String employeeName = getEmployeeName(deviceId);
             logCommand(deviceId, "LOCK", employeeName);
-            logActivity(deviceId, employeeName, "DEVICE_LOCKED",
-                    employeeName + "'s Device locked via AMAPI", "WARNING");
-            logAlert(deviceId, employeeName, "DEVICE_LOCKED",
-                    employeeName + "'s Device locked via AMAPI", "WARNING");
-
+            logActivity(deviceId, employeeName, "DEVICE_LOCKED", employeeName + "'s Device locked via AMAPI", "WARNING");
+            logAlert(deviceId, employeeName, "DEVICE_LOCKED", employeeName + "'s Device locked via AMAPI", "WARNING");
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Lock failed: " + e.getMessage());
@@ -358,22 +363,15 @@ public class AmapiController {
             @RequestParam(name = "enterpriseName", required = false) String enterpriseName) {
         try {
             String result = amapiService.issueCommand(resolve(enterpriseName), deviceId, "WIPE_DATA");
-
-            // Mark device offline locally
             deviceRepo.findByDeviceId(deviceId).ifPresent(device -> {
                 device.setStatus("OFFLINE");
                 device.setLastSeenAt(LocalDateTime.now().minusHours(1));
                 deviceRepo.save(device);
             });
-
-            // Audit log
             String employeeName = getEmployeeName(deviceId);
             logCommand(deviceId, "WIPE_DATA", employeeName);
-            logActivity(deviceId, employeeName, "WIPE_INITIATED",
-                    employeeName + "'s Device wiped via AMAPI", "CRITICAL");
-            logAlert(deviceId, employeeName, "WIPE_INITIATED",
-                    employeeName + "'s Device wipe executed via AMAPI", "CRITICAL");
-
+            logActivity(deviceId, employeeName, "WIPE_INITIATED", employeeName + "'s Device wiped via AMAPI", "CRITICAL");
+            logAlert(deviceId, employeeName, "WIPE_INITIATED", employeeName + "'s Device wipe executed via AMAPI", "CRITICAL");
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Wipe failed: " + e.getMessage());
@@ -399,12 +397,9 @@ public class AmapiController {
             };
 
             String result = amapiService.issueCommand(resolve(enterpriseName), deviceId, amapiType);
-
-            // Audit log
             String employeeName = getEmployeeName(deviceId);
             logCommand(deviceId, amapiType, employeeName);
-            logActivity(deviceId, employeeName, amapiType,
-                    amapiType + " command issued on " + employeeName + "'s Device via AMAPI", "WARNING");
+            logActivity(deviceId, employeeName, amapiType, amapiType + " command issued on " + employeeName + "'s Device via AMAPI", "WARNING");
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", amapiType + " command issued via AMAPI");
@@ -418,7 +413,7 @@ public class AmapiController {
     }
 
     // ════════════════════════════════════════
-    // APP RESTRICTION — via AMAPI Policy
+    // APP RESTRICTIONS
     // ════════════════════════════════════════
 
     @PostMapping("/devices/{deviceId}/restrict-app")
@@ -427,14 +422,12 @@ public class AmapiController {
             @RequestBody Map<String, Object> body) {
         String packageName = (String) body.get("packageName");
         String appName = (String) body.getOrDefault("appName", packageName);
-        String installSource = (String) body.getOrDefault("installSource", "");
         Boolean restricted = body.get("restricted") != null
                 ? Boolean.valueOf(body.get("restricted").toString()) : true;
 
         if (packageName == null || packageName.isBlank())
             return ResponseEntity.badRequest().body(Map.of("message", "packageName is required"));
 
-        // Save restriction to local DB
         var existing = appRestrictionRepo.findByDeviceIdAndPackageName(deviceId, packageName);
         DeviceAppRestriction restriction;
         if (existing.isPresent()) {
@@ -444,12 +437,10 @@ public class AmapiController {
         } else {
             restriction = DeviceAppRestriction.builder()
                     .deviceId(deviceId).packageName(packageName).appName(appName)
-                    .installSource(installSource).restricted(restricted)
-                    .appliedAt(LocalDateTime.now()).build();
+                    .restricted(restricted).appliedAt(LocalDateTime.now()).build();
         }
         appRestrictionRepo.save(restriction);
 
-        // Sync to AMAPI
         try {
             DevicePolicy policy = policyRepo.findByDeviceId(deviceId).orElse(null);
             amapiService.patchDevicePolicy(defaultEnterpriseName, defaultPolicyId, policy,
@@ -458,20 +449,10 @@ public class AmapiController {
             log.error("Failed to sync app restriction to AMAPI", e);
         }
 
-        // Audit log
         String employeeName = getEmployeeName(deviceId);
         String action = restricted ? "APP_RESTRICTED" : "APP_ALLOWED";
-        String desc = (restricted ? appName + " restricted on " : appName + " allowed on ")
-                + employeeName + "'s Device";
-        logActivity(deviceId, employeeName, action, desc, restricted ? "WARNING" : "INFO");
-        if (restricted) {
-            logAlert(deviceId, employeeName, "APP_RESTRICTED",
-                    appName + " blocked on " + employeeName + "'s Device", "WARNING");
-        }
-
-        log.info("{} app {} on device {}", restricted ? "Restricted" : "Allowed", packageName, deviceId);
-        return ResponseEntity.ok(Map.of("message",
-                "App " + (restricted ? "restricted" : "allowed") + " successfully via AMAPI"));
+        logActivity(deviceId, employeeName, action, (restricted ? appName + " restricted on " : appName + " allowed on ") + employeeName + "'s Device", restricted ? "WARNING" : "INFO");
+        return ResponseEntity.ok(Map.of("message", "App " + (restricted ? "restricted" : "allowed") + " successfully via AMAPI"));
     }
 
     @GetMapping("/devices/{deviceId}/restricted-apps")
@@ -480,205 +461,53 @@ public class AmapiController {
         return ResponseEntity.ok(appRestrictionRepo.findByDeviceIdAndRestricted(deviceId, true));
     }
 
-    @GetMapping("/devices/{deviceId}/app-restrictions")
-    public ResponseEntity<List<DeviceAppRestriction>> getAllAppRestrictions(
-            @PathVariable(name = "deviceId") String deviceId) {
-        return ResponseEntity.ok(appRestrictionRepo.findByDeviceId(deviceId));
-    }
-
     // ════════════════════════════════════════
-    // DEVICE POLICY — via AMAPI
-    // ════════════════════════════════════════
-
-    @PostMapping("/devices/{deviceId}/policy")
-    public ResponseEntity<?> updatePolicy(
-            @PathVariable(name = "deviceId") String deviceId,
-            @RequestBody Map<String, Object> body) {
-        try {
-            var policy = DevicePolicy.builder()
-                    .deviceId(deviceId)
-                    .cameraDisabled(false)
-                    .screenLockRequired(false)
-                    .installBlocked(false)
-                    .uninstallBlocked(false)
-                    .locationTrackingEnabled(false)
-                    .build();
-
-            String employeeName = getEmployeeName(deviceId);
-
-            if (body.containsKey("cameraDisabled")) {
-                boolean val = Boolean.parseBoolean(body.get("cameraDisabled").toString());
-                policy.setCameraDisabled(val);
-                String desc = (val ? "Camera disabled" : "Camera enabled") + " on " + employeeName + "'s Device";
-                logActivity(deviceId, employeeName, val ? "CAMERA_DISABLED" : "CAMERA_ENABLED", desc, "WARNING");
-                logAlert(deviceId, employeeName, val ? "CAMERA_DISABLED" : "CAMERA_ENABLED", desc, "WARNING");
-            }
-            if (body.containsKey("screenLockRequired"))
-                policy.setScreenLockRequired(Boolean.parseBoolean(body.get("screenLockRequired").toString()));
-            if (body.containsKey("installBlocked"))
-                policy.setInstallBlocked(Boolean.parseBoolean(body.get("installBlocked").toString()));
-            if (body.containsKey("uninstallBlocked"))
-                policy.setUninstallBlocked(Boolean.parseBoolean(body.get("uninstallBlocked").toString()));
-            if (body.containsKey("locationTrackingEnabled"))
-                policy.setLocationTrackingEnabled(Boolean.parseBoolean(body.get("locationTrackingEnabled").toString()));
-
-            policy.setAppliedAt(LocalDateTime.now());
-
-            // Sync policy to Google AMAPI
-            amapiService.patchDevicePolicy(defaultEnterpriseName, defaultPolicyId, policy,
-                    appRestrictionRepo.findByDeviceId(deviceId));
-
-            return ResponseEntity.ok(Map.of("message", "Policy updated via AMAPI"));
-        } catch (Exception e) {
-            log.error("Failed to update policy via AMAPI", e);
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
-        }
-    }
-
-    @GetMapping("/devices/{deviceId}/policies")
-    public ResponseEntity<Map<String, Object>> getPolicies(
-            @PathVariable(name = "deviceId") String deviceId) {
-        return ResponseEntity.ok(Map.of(
-                "deviceId", deviceId,
-                "cameraDisabled", false,
-                "screenLockRequired", false,
-                "installBlocked", false,
-                "uninstallBlocked", false,
-                "locationTrackingEnabled", false,
-                "source", "AMAPI"));
-    }
-
-    // ════════════════════════════════════════
-    // COMMAND HISTORY (from local DB)
-    // ════════════════════════════════════════
-
-    @GetMapping("/devices/{deviceId}/commands/{commandId}")
-    public ResponseEntity<?> getCommandStatus(
-            @PathVariable(name = "deviceId") String deviceId,
-            @PathVariable(name = "commandId") Long commandId) {
-        var commandOpt = commandRepo.findById(commandId);
-        if (commandOpt.isEmpty() || !commandOpt.get().getDeviceId().equals(deviceId)) {
-            return ResponseEntity.status(404).body(Map.of("message", "Command not found"));
-        }
-        var command = commandOpt.get();
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", command.getId());
-        response.put("deviceId", deviceId);
-        response.put("commandType", command.getCommandType());
-        response.put("executed", command.isExecuted());
-        response.put("status", command.isExecuted() ? "EXECUTED" : "PENDING");
-        response.put("createdAt", command.getCreatedAt());
-        response.put("executedAt", command.getExecutedAt());
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/devices/{deviceId}/pending-commands")
-    public ResponseEntity<List<Map<String, Object>>> getPendingCommands(
-            @PathVariable(name = "deviceId") String deviceId) {
-        var pending = commandRepo.findByDeviceIdAndExecutedFalseOrderByCreatedAtAsc(deviceId)
-                .stream().map(cmd -> {
-                    Map<String, Object> row = new HashMap<>();
-                    row.put("id", cmd.getId());
-                    row.put("deviceId", cmd.getDeviceId());
-                    row.put("commandType", cmd.getCommandType());
-                    row.put("packageName", cmd.getPackageName());
-                    row.put("executed", cmd.isExecuted());
-                    row.put("status", "PENDING");
-                    row.put("createdAt", cmd.getCreatedAt());
-                    row.put("executedAt", cmd.getExecutedAt());
-                    return row;
-                }).toList();
-        return ResponseEntity.ok(pending);
-    }
-
-    @PostMapping("/devices/{deviceId}/commands/{commandId}/ack")
-    public ResponseEntity<?> ackCommand(
-            @PathVariable(name = "deviceId") String deviceId,
-            @PathVariable(name = "commandId") Long commandId) {
-        var commandOpt = commandRepo.findById(commandId);
-        if (commandOpt.isEmpty() || !commandOpt.get().getDeviceId().equals(deviceId)) {
-            return ResponseEntity.status(404).body(Map.of("message", "Command not found"));
-        }
-        var command = commandOpt.get();
-        command.setExecuted(true);
-        command.setExecutedAt(LocalDateTime.now());
-        commandRepo.save(command);
-        return ResponseEntity.ok(Map.of("message", "Command acknowledged", "commandId", command.getId(), "status", "EXECUTED"));
-    }
-
-    @PostMapping("/commands/{commandId}/executed")
-    public ResponseEntity<?> markCommandExecuted(@PathVariable(name = "commandId") Long commandId) {
-        var commandOpt = commandRepo.findById(commandId);
-        if (commandOpt.isEmpty()) {
-            return ResponseEntity.status(404).body(Map.of("message", "Command not found"));
-        }
-        var command = commandOpt.get();
-        command.setExecuted(true);
-        command.setExecutedAt(LocalDateTime.now());
-        commandRepo.save(command);
-        return ResponseEntity.ok(Map.of("message", "Command marked executed"));
-    }
-
-    // ════════════════════════════════════════
-    // PRIVATE HELPERS
+    // HELPERS
     // ════════════════════════════════════════
 
     private String resolve(String enterpriseName) {
-        return enterpriseName != null && !enterpriseName.isBlank() ? enterpriseName : defaultEnterpriseName;
+        return (enterpriseName == null || enterpriseName.isBlank()) ? defaultEnterpriseName : enterpriseName;
     }
 
     private String getEmployeeName(String deviceId) {
-        return deviceRepo.findByDeviceId(deviceId)
-                .map(Device::getEmployeeName).orElse("Unknown");
+        return deviceRepo.findByDeviceId(deviceId).map(Device::getEmployeeName).orElse("Unknown User");
     }
 
-    private void logCommand(String deviceId, String commandType, String employeeName) {
-        try {
-            DeviceCommand cmd = DeviceCommand.builder()
-                    .deviceId(deviceId)
-                    .commandType(commandType)
-                    .executed(true)
-                    .createdAt(LocalDateTime.now())
-                    .executedAt(LocalDateTime.now())
-                    .build();
-            commandRepo.save(cmd);
-        } catch (Exception e) {
-            log.warn("Failed to log command {} for device {}: {}", commandType, deviceId, e.getMessage());
-        }
+    private void logCommand(String deviceId, String type, String employee) {
+        commandRepo.save(DeviceCommand.builder()
+                .deviceId(deviceId)
+                .commandType(type)
+                .executed(true)
+                .createdAt(LocalDateTime.now())
+                .build());
     }
 
-    private void logActivity(String deviceId, String employeeName, String type, String description, String severity) {
-        try {
-            activityRepo.save(DeviceActivity.builder()
-                    .deviceId(deviceId).employeeName(employeeName)
-                    .activityType(type).description(description)
-                    .severity(severity).createdAt(LocalDateTime.now()).build());
-        } catch (Exception e) {
-            log.warn("Failed to log activity for device {}: {}", deviceId, e.getMessage());
-        }
+    private void logActivity(String deviceId, String name, String action, String desc, String severity) {
+        activityRepo.save(DeviceActivity.builder()
+                .deviceId(deviceId)
+                .employeeName(name)
+                .activityType(action)
+                .description(desc)
+                .severity(severity)
+                .createdAt(LocalDateTime.now())
+                .build());
     }
 
-    private void logAlert(String deviceId, String employeeName, String alertType, String message, String severity) {
-        try {
-            alertRepo.save(MdmAlert.builder()
-                    .deviceId(deviceId).employeeName(employeeName)
-                    .alertType(alertType).message(message)
-                    .isRead(false).severity(severity).createdAt(LocalDateTime.now()).build());
-        } catch (Exception e) {
-            log.warn("Failed to log alert for device {}: {}", deviceId, e.getMessage());
-        }
+    private void logAlert(String deviceId, String name, String type, String msg, String severity) {
+        alertRepo.save(MdmAlert.builder()
+                .deviceId(deviceId)
+                .employeeName(name)
+                .alertType(type)
+                .message(msg)
+                .isRead(false)
+                .severity(severity)
+                .createdAt(LocalDateTime.now())
+                .build());
     }
 
-    private String extractEnterpriseType(String enterpriseJson) {
-        if (enterpriseJson == null || enterpriseJson.isBlank()) return null;
+    private String extractEnterpriseType(String raw) {
         try {
-            JsonNode root = objectMapper.readTree(enterpriseJson);
-            JsonNode node = root.path("enterpriseType");
-            if (node.isMissingNode() || node.isNull()) return null;
-            String value = node.asText();
-            return value == null || value.isBlank() ? null : value;
-        } catch (Exception ex) {
-            return null;
-        }
+            return objectMapper.readTree(raw).path("enterpriseType").asText();
+        } catch (Exception e) { return "UNKNOWN"; }
     }
 }
