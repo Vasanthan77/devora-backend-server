@@ -58,7 +58,7 @@ public class AmapiController {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${amapi.enterprise-name:enterprises/LC01uq3ykm}")
+    @Value("${amapi.enterprise-name:enterprises/LC03patpnu}")
     private String defaultEnterpriseName;
 
     @Value("${amapi.policy-id:policy1}")
@@ -111,7 +111,7 @@ public class AmapiController {
             if (enterprises.isArray()) {
                 for (JsonNode ent : enterprises) {
                     String name = ent.path("name").textValue();
-                    if (name != null && !name.contains("LC01uq3ykm") && !name.isBlank()) {
+                    if (name != null && !name.contains("LC03patpnu") && !name.isBlank()) {
                         try {
                             amapiService.deleteEnterprise(name);
                             count++;

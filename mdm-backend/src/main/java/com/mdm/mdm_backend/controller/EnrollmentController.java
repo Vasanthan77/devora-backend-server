@@ -30,7 +30,7 @@ public class EnrollmentController {
     private final AmapiService amapiService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${amapi.enterprise-name:enterprises/LC01uq3ykm}")
+    @Value("${amapi.enterprise-name:enterprises/LC03patpnu}")
     private String enterpriseName;
 
     @Value("${amapi.policy-id:policy1}")

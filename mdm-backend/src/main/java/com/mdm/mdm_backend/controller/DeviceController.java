@@ -46,7 +46,7 @@ public class DeviceController {
     private final DeviceRepository deviceRepo;
     private final AmapiService amapiService;
 
-    @Value("${amapi.enterprise-name:enterprises/LC01uq3ykm}")
+    @Value("${amapi.enterprise-name:enterprises/LC03patpnu}")
     private String enterpriseName;
 
     // ════════════════════════════════════════
