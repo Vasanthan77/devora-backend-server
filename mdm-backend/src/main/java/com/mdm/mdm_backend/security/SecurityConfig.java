@@ -38,6 +38,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/webhook/amapi").permitAll()
+                .requestMatchers("/api/amapi/**").permitAll() // Allow cleanup and management
                 .requestMatchers("/api/admin/login", "/api/admin/register").permitAll()
                 .anyRequest().authenticated()
             )

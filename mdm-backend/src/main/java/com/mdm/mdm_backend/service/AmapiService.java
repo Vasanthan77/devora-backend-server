@@ -415,6 +415,38 @@ public class AmapiService {
         }
     }
 
+    public String listEnterprises() throws Exception {
+        String accessToken = getAccessToken();
+        String projectId = getProjectId();
+        if (projectId == null || projectId.isEmpty()) {
+            throw new RuntimeException("Could not find project_id to list enterprises");
+        }
+        String url = "https://androidmanagement.googleapis.com/v1/enterprises?projectId=" + projectId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return response.getBody();
+        } else {
+            throw new RuntimeException("Failed to list enterprises: " + response.getBody());
+        }
+    }
+
+    public void deleteEnterprise(String enterpriseName) throws Exception {
+        String accessToken = getAccessToken();
+        String url = "https://androidmanagement.googleapis.com/v1/" + enterpriseName;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        restTemplate.exchange(url, HttpMethod.DELETE, entity, Void.class);
+    }
+
     public void deleteDevice(String enterpriseName, String deviceId) throws Exception {
         String accessToken = getAccessToken();
         // deviceId in AMAPI usually includes the enterprise, e.g. "enterprises/LC01oh6rj0/devices/12345"

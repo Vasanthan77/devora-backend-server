@@ -60,7 +60,7 @@ public class DeviceController {
         }
 
         @GetMapping("/devices/{deviceId}")
-        public ResponseEntity<?> getDevice(@PathVariable String deviceId) {
+        public ResponseEntity<?> getDevice(@PathVariable(name = "deviceId") String deviceId) {
                 return enrollmentService.getDeviceAsResponse(deviceId)
                                 .<ResponseEntity<?>>map(ResponseEntity::ok)
                                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -68,7 +68,7 @@ public class DeviceController {
         }
 
         @PostMapping("/devices/{deviceId}/heartbeat")
-        public ResponseEntity<Map<String, String>> heartbeat(@PathVariable String deviceId) {
+        public ResponseEntity<Map<String, String>> heartbeat(@PathVariable(name = "deviceId") String deviceId) {
                 return enrollmentService.recordHeartbeat(deviceId)
                                 .map(device -> ResponseEntity.ok(Map.of("status", "ok")))
                                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -76,7 +76,7 @@ public class DeviceController {
         }
 
         @DeleteMapping("/devices/{deviceId}")
-        public ResponseEntity<Map<String, String>> deleteDevice(@PathVariable String deviceId) {
+        public ResponseEntity<Map<String, String>> deleteDevice(@PathVariable(name = "deviceId") String deviceId) {
                 try {
                         String employeeName = deviceRepo.findByDeviceId(deviceId)
                                         .map(Device::getEmployeeName).orElse("Unknown");
@@ -121,7 +121,7 @@ public class DeviceController {
         }
 
         @GetMapping("/devices/check/{deviceId}")
-        public ResponseEntity<DeviceResponse> checkDevice(@PathVariable String deviceId) {
+        public ResponseEntity<DeviceResponse> checkDevice(@PathVariable(name = "deviceId") String deviceId) {
                 return enrollmentService.getDeviceAsResponse(deviceId)
                                 .map(ResponseEntity::ok)
                                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
@@ -132,7 +132,7 @@ public class DeviceController {
         // ════════════════════════════════════════
 
         @PostMapping("/devices/{deviceId}/restrict-app")
-        public ResponseEntity<?> restrictApp(@PathVariable String deviceId, @RequestBody Map<String, Object> body) {
+        public ResponseEntity<?> restrictApp(@PathVariable(name = "deviceId") String deviceId, @RequestBody Map<String, Object> body) {
                 String packageName = (String) body.get("packageName");
                 String appName = (String) body.getOrDefault("appName", packageName);
                 String installSource = (String) body.getOrDefault("installSource", "");
@@ -193,12 +193,12 @@ public class DeviceController {
         }
 
         @GetMapping("/devices/{deviceId}/restricted-apps")
-        public ResponseEntity<List<DeviceAppRestriction>> getRestrictedApps(@PathVariable String deviceId) {
+        public ResponseEntity<List<DeviceAppRestriction>> getRestrictedApps(@PathVariable(name = "deviceId") String deviceId) {
                 return ResponseEntity.ok(appRestrictionRepo.findByDeviceIdAndRestricted(deviceId, true));
         }
 
         @GetMapping("/devices/{deviceId}/app-restrictions")
-        public ResponseEntity<List<DeviceAppRestriction>> getAllAppRestrictions(@PathVariable String deviceId) {
+        public ResponseEntity<List<DeviceAppRestriction>> getAllAppRestrictions(@PathVariable(name = "deviceId") String deviceId) {
                 return ResponseEntity.ok(appRestrictionRepo.findByDeviceId(deviceId));
         }
 
@@ -207,7 +207,7 @@ public class DeviceController {
         // ════════════════════════════════════════
 
         @GetMapping("/devices/{deviceId}/policies")
-        public ResponseEntity<Map<String, Object>> getPolicies(@PathVariable String deviceId) {
+        public ResponseEntity<Map<String, Object>> getPolicies(@PathVariable(name = "deviceId") String deviceId) {
                 return ResponseEntity.ok(Map.of(
                                 "deviceId", deviceId,
                                 "cameraDisabled", false,
@@ -219,7 +219,7 @@ public class DeviceController {
         }
 
         @PostMapping("/devices/{deviceId}/policy")
-        public ResponseEntity<?> updatePolicy(@PathVariable String deviceId,
+        public ResponseEntity<?> updatePolicy(@PathVariable(name = "deviceId") String deviceId,
                         @RequestBody Map<String, Object> body) {
                 var policy = com.mdm.mdm_backend.model.entity.DevicePolicy.builder()
                                 .deviceId(deviceId)
@@ -276,7 +276,7 @@ public class DeviceController {
         // ════════════════════════════════════════
 
         @PostMapping("/devices/{deviceId}/lock")
-        public ResponseEntity<?> lockDevice(@PathVariable String deviceId) {
+        public ResponseEntity<?> lockDevice(@PathVariable(name = "deviceId") String deviceId) {
                 DeviceCommand commandRecord = DeviceCommand.builder()
                                 .deviceId(deviceId)
                                 .commandType("LOCK")
@@ -357,7 +357,7 @@ public class DeviceController {
 
         @PostMapping("/devices/{deviceId}/command")
         public ResponseEntity<?> createCommand(
-                        @PathVariable String deviceId,
+                        @PathVariable(name = "deviceId") String deviceId,
                         @RequestBody Map<String, Object> body) {
                 String type = body.get("type") != null ? body.get("type").toString() : null;
                 String packageName = body.get("packageName") != null ? body.get("packageName").toString() : null;
@@ -413,8 +413,8 @@ public class DeviceController {
 
         @GetMapping("/devices/{deviceId}/commands/{commandId}")
         public ResponseEntity<?> getCommandStatus(
-                        @PathVariable String deviceId,
-                        @PathVariable Long commandId) {
+                        @PathVariable(name = "deviceId") String deviceId,
+                        @PathVariable(name = "commandId") Long commandId) {
                 var commandOpt = commandRepo.findById(commandId);
                 if (commandOpt.isEmpty() || !commandOpt.get().getDeviceId().equals(deviceId)) {
                         return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -434,7 +434,7 @@ public class DeviceController {
         }
 
         @GetMapping("/devices/{deviceId}/pending-commands")
-        public ResponseEntity<List<Map<String, Object>>> getPendingCommands(@PathVariable String deviceId) {
+        public ResponseEntity<List<Map<String, Object>>> getPendingCommands(@PathVariable(name = "deviceId") String deviceId) {
                 var pending = commandRepo.findByDeviceIdAndExecutedFalseOrderByCreatedAtAsc(deviceId)
                                 .stream()
                                 .map(cmd -> {
@@ -454,8 +454,8 @@ public class DeviceController {
         }
 
         @PostMapping("/devices/{deviceId}/commands/{commandId}/ack")
-        public ResponseEntity<?> ackCommand(@PathVariable String deviceId,
-                        @PathVariable Long commandId) {
+        public ResponseEntity<?> ackCommand(@PathVariable(name = "deviceId") String deviceId,
+                        @PathVariable(name = "commandId") Long commandId) {
                 var commandOpt = commandRepo.findById(commandId);
                 if (commandOpt.isEmpty() || !commandOpt.get().getDeviceId().equals(deviceId)) {
                         return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -474,7 +474,7 @@ public class DeviceController {
         }
 
         @PostMapping("/commands/{commandId}/executed")
-        public ResponseEntity<?> markCommandExecuted(@PathVariable Long commandId) {
+        public ResponseEntity<?> markCommandExecuted(@PathVariable(name = "commandId") Long commandId) {
                 var commandOpt = commandRepo.findById(commandId);
                 if (commandOpt.isEmpty()) {
                         return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -501,7 +501,7 @@ public class DeviceController {
         // ════════════════════════════════════════
 
         @PostMapping("/devices/{deviceId}/location")
-        public ResponseEntity<?> reportLocation(@PathVariable String deviceId,
+        public ResponseEntity<?> reportLocation(@PathVariable(name = "deviceId") String deviceId,
                         @RequestBody Map<String, Object> body) {
                 Double lat = body.get("latitude") != null
                                 ? Double.parseDouble(body.get("latitude").toString())
@@ -551,7 +551,7 @@ public class DeviceController {
         }
 
         @GetMapping("/devices/{deviceId}/location")
-        public ResponseEntity<?> getLocation(@PathVariable String deviceId) {
+        public ResponseEntity<?> getLocation(@PathVariable(name = "deviceId") String deviceId) {
                 return accurateLocationRepo.findTopByDeviceIdOrderByRecordedAtDesc(deviceId)
                                 .map(ResponseEntity::ok)
                                 .orElse(ResponseEntity.notFound().build());
@@ -559,8 +559,8 @@ public class DeviceController {
 
         @GetMapping("/devices/{deviceId}/location/history")
         public ResponseEntity<List<AccurateDeviceLocation>> getLocationHistory(
-                        @PathVariable String deviceId,
-                        @RequestParam(defaultValue = "5") int limit) {
+                        @PathVariable(name = "deviceId") String deviceId,
+                        @RequestParam(name = "limit", defaultValue = "5") int limit) {
                 int safeLimit = Math.max(1, Math.min(limit, 10));
                 List<AccurateDeviceLocation> locations = accurateLocationRepo
                                 .findTop10ByDeviceIdOrderByRecordedAtDesc(deviceId)
@@ -572,25 +572,25 @@ public class DeviceController {
         }
 
         @PostMapping("/devices/{deviceId}/accurate-location")
-        public ResponseEntity<?> reportAccurateLocation(@PathVariable String deviceId,
+        public ResponseEntity<?> reportAccurateLocation(@PathVariable(name = "deviceId") String deviceId,
                         @RequestBody Map<String, Object> body) {
                 return reportLocation(deviceId, body);
         }
 
         @GetMapping("/devices/{deviceId}/accurate-location")
-        public ResponseEntity<?> getAccurateLocation(@PathVariable String deviceId) {
+        public ResponseEntity<?> getAccurateLocation(@PathVariable(name = "deviceId") String deviceId) {
                 return getLocation(deviceId);
         }
 
         @GetMapping("/devices/{deviceId}/accurate-location/history")
         public ResponseEntity<List<AccurateDeviceLocation>> getAccurateLocationHistory(
-                        @PathVariable String deviceId,
-                        @RequestParam(defaultValue = "5") int limit) {
+                        @PathVariable(name = "deviceId") String deviceId,
+                        @RequestParam(name = "limit", defaultValue = "5") int limit) {
                 return getLocationHistory(deviceId, limit);
         }
 
         @PostMapping("/devices/{deviceId}/sign-out")
-        public ResponseEntity<?> signOutDevice(@PathVariable String deviceId) {
+        public ResponseEntity<?> signOutDevice(@PathVariable(name = "deviceId") String deviceId) {
                 // 1. Find the device and set status to OFFLINE.
                 // Also backdate lastSeenAt so heartbeat reconciler doesn't immediately restore
                 // ACTIVE.

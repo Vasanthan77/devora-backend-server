@@ -46,8 +46,8 @@ public class AmapiController {
     }
 
     @PostMapping("/policy")
-    public ResponseEntity<?> createPolicy(@RequestParam String enterpriseName,
-            @RequestParam String policyId) {
+    public ResponseEntity<?> createPolicy(@RequestParam(name = "enterpriseName") String enterpriseName,
+            @RequestParam(name = "policyId") String policyId) {
         try {
             String result = amapiService.createPolicy(enterpriseName, policyId);
             return ResponseEntity.ok(result);
@@ -57,8 +57,8 @@ public class AmapiController {
     }
 
     @PostMapping("/token")
-    public ResponseEntity<?> createEnrollmentToken(@RequestParam String enterpriseName,
-            @RequestParam String policyId) {
+    public ResponseEntity<?> createEnrollmentToken(@RequestParam(name = "enterpriseName") String enterpriseName,
+            @RequestParam(name = "policyId") String policyId) {
         try {
             String result = amapiService.createEnrollmentToken(enterpriseName, policyId);
             return ResponseEntity.ok(result);
@@ -69,10 +69,10 @@ public class AmapiController {
 
     @PostMapping("/enterprise/pubsub")
     public ResponseEntity<?> setPubSubTopic(
-            @RequestParam String enterpriseName,
-            @RequestParam String projectId,
-            @RequestParam String topicName,
-            @RequestParam(required = false) String notificationTypes) {
+            @RequestParam(name = "enterpriseName") String enterpriseName,
+            @RequestParam(name = "projectId") String projectId,
+            @RequestParam(name = "topicName") String topicName,
+            @RequestParam(name = "notificationTypes", required = false) String notificationTypes) {
         try {
             List<String> parsedTypes = null;
             if (notificationTypes != null && !notificationTypes.isBlank()) {
@@ -90,7 +90,7 @@ public class AmapiController {
     }
 
     @GetMapping("/enterprise")
-    public ResponseEntity<?> getEnterprise(@RequestParam(required = false) String enterpriseName) {
+    public ResponseEntity<?> getEnterprise(@RequestParam(name = "enterpriseName", required = false) String enterpriseName) {
         try {
             String resolvedEnterprise = enterpriseName != null && !enterpriseName.isBlank()
                     ? enterpriseName
@@ -103,7 +103,7 @@ public class AmapiController {
     }
 
     @GetMapping("/enterprise/upgrade/eligibility")
-    public ResponseEntity<?> getUpgradeEligibility(@RequestParam(required = false) String enterpriseName) {
+    public ResponseEntity<?> getUpgradeEligibility(@RequestParam(name = "enterpriseName", required = false) String enterpriseName) {
         try {
             String resolvedEnterprise = enterpriseName != null && !enterpriseName.isBlank()
                     ? enterpriseName
@@ -129,7 +129,7 @@ public class AmapiController {
 
     @PostMapping("/enterprise/upgrade-url")
     public ResponseEntity<?> generateEnterpriseUpgradeUrl(
-            @RequestParam(required = false) String enterpriseName,
+            @RequestParam(name = "enterpriseName", required = false) String enterpriseName,
             @RequestBody(required = false) Map<String, Object> body) {
         try {
             String resolvedEnterprise = enterpriseName != null && !enterpriseName.isBlank()
@@ -164,7 +164,7 @@ public class AmapiController {
     }
 
     @GetMapping("/enterprise/upgrade/status")
-    public ResponseEntity<?> getUpgradeStatus(@RequestParam(required = false) String enterpriseName) {
+    public ResponseEntity<?> getUpgradeStatus(@RequestParam(name = "enterpriseName", required = false) String enterpriseName) {
         try {
             String resolvedEnterprise = enterpriseName != null && !enterpriseName.isBlank()
                     ? enterpriseName
@@ -186,7 +186,7 @@ public class AmapiController {
     }
 
     @GetMapping("/devices")
-    public ResponseEntity<?> listDevices(@RequestParam(required = false) String enterpriseName) {
+    public ResponseEntity<?> listDevices(@RequestParam(name = "enterpriseName", required = false) String enterpriseName) {
         try {
             String result = amapiService.listDevices(
                     enterpriseName != null && !enterpriseName.isBlank() ? enterpriseName : defaultEnterpriseName);
@@ -197,8 +197,8 @@ public class AmapiController {
     }
 
     @GetMapping("/devices/{deviceId}")
-    public ResponseEntity<?> getDevice(@org.springframework.web.bind.annotation.PathVariable String deviceId,
-            @RequestParam(required = false) String enterpriseName) {
+    public ResponseEntity<?> getDevice(@org.springframework.web.bind.annotation.PathVariable(name = "deviceId") String deviceId,
+            @RequestParam(name = "enterpriseName", required = false) String enterpriseName) {
         try {
             String result = amapiService.getDevice(
                     enterpriseName != null && !enterpriseName.isBlank() ? enterpriseName : defaultEnterpriseName,
@@ -209,8 +209,42 @@ public class AmapiController {
         }
     }
 
+    @GetMapping("/projects/enterprises")
+    public ResponseEntity<?> listAllEnterprises() {
+        try {
+            String result = amapiService.listEnterprises();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/projects/enterprises/bulk-cleanup")
+    public ResponseEntity<?> cleanupProjectEnterprises() {
+        try {
+            String raw = amapiService.listEnterprises();
+            JsonNode root = objectMapper.readTree(raw);
+            JsonNode enterprises = root.path("enterprises");
+
+            int count = 0;
+            if (enterprises.isArray()) {
+                for (JsonNode ent : enterprises) {
+                    String name = ent.path("name").asText();
+                    // ONLY delete if it's NOT your primary current enterprise
+                    if (!name.contains("LC01uq3ykm") && !name.isBlank()) {
+                        amapiService.deleteEnterprise(name);
+                        count++;
+                    }
+                }
+            }
+            return ResponseEntity.ok(Map.of("message", "Cleanup finished", "deletedEnterprises", count));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
     @DeleteMapping("/devices/bulk-delete")
-    public ResponseEntity<?> deleteAllDevices(@RequestParam(required = false) String enterpriseName) {
+    public ResponseEntity<?> deleteAllDevices(@RequestParam(name = "enterpriseName", required = false) String enterpriseName) {
         try {
             String resolvedEnterprise = enterpriseName != null && !enterpriseName.isBlank()
                     ? enterpriseName
@@ -242,8 +276,8 @@ public class AmapiController {
     }
 
     @DeleteMapping("/devices/{deviceId}")
-    public ResponseEntity<?> deleteDevice(@org.springframework.web.bind.annotation.PathVariable String deviceId,
-            @RequestParam(required = false) String enterpriseName) {
+    public ResponseEntity<?> deleteDevice(@org.springframework.web.bind.annotation.PathVariable(name = "deviceId") String deviceId,
+            @RequestParam(name = "enterpriseName", required = false) String enterpriseName) {
         try {
             amapiService.deleteDevice(
                     enterpriseName != null && !enterpriseName.isBlank() ? enterpriseName : defaultEnterpriseName,
@@ -255,8 +289,8 @@ public class AmapiController {
     }
 
     @PostMapping("/devices/{deviceId}/lock")
-    public ResponseEntity<?> lockDevice(@org.springframework.web.bind.annotation.PathVariable String deviceId,
-            @RequestParam(required = false) String enterpriseName) {
+    public ResponseEntity<?> lockDevice(@org.springframework.web.bind.annotation.PathVariable(name = "deviceId") String deviceId,
+            @RequestParam(name = "enterpriseName", required = false) String enterpriseName) {
         try {
             String result = amapiService.issueCommand(
                     enterpriseName != null && !enterpriseName.isBlank() ? enterpriseName : defaultEnterpriseName,
@@ -269,8 +303,8 @@ public class AmapiController {
     }
 
     @PostMapping("/devices/{deviceId}/wipe")
-    public ResponseEntity<?> wipeDevice(@org.springframework.web.bind.annotation.PathVariable String deviceId,
-            @RequestParam(required = false) String enterpriseName) {
+    public ResponseEntity<?> wipeDevice(@org.springframework.web.bind.annotation.PathVariable(name = "deviceId") String deviceId,
+            @RequestParam(name = "enterpriseName", required = false) String enterpriseName) {
         try {
             String result = amapiService.issueCommand(
                     enterpriseName != null && !enterpriseName.isBlank() ? enterpriseName : defaultEnterpriseName,
@@ -283,9 +317,9 @@ public class AmapiController {
     }
 
     @PostMapping("/devices/{deviceId}/command")
-    public ResponseEntity<?> issueCommand(@org.springframework.web.bind.annotation.PathVariable String deviceId,
+    public ResponseEntity<?> issueCommand(@org.springframework.web.bind.annotation.PathVariable(name = "deviceId") String deviceId,
             @RequestBody Map<String, Object> body,
-            @RequestParam(required = false) String enterpriseName) {
+            @RequestParam(name = "enterpriseName", required = false) String enterpriseName) {
         try {
             String commandType = body.get("type") != null ? body.get("type").toString() : "";
             if (commandType.isBlank()) {
@@ -303,8 +337,8 @@ public class AmapiController {
     }
 
     @PostMapping("/policy/sync")
-    public ResponseEntity<?> syncDefaultPolicy(@RequestParam(required = false) String enterpriseName,
-            @RequestParam(required = false) String policyId) {
+    public ResponseEntity<?> syncDefaultPolicy(@RequestParam(name = "enterpriseName", required = false) String enterpriseName,
+            @RequestParam(name = "policyId", required = false) String policyId) {
         try {
             String resolvedEnterprise = enterpriseName != null && !enterpriseName.isBlank()
                     ? enterpriseName

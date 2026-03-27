@@ -88,7 +88,7 @@ public class EnrollmentController {
     }
 
     @DeleteMapping("/enrollment/{tokenId}")
-    public ResponseEntity<Map<String, String>> revokeEnrollment(@PathVariable Long tokenId) {
+    public ResponseEntity<Map<String, String>> revokeEnrollment(@PathVariable(name = "tokenId") Long tokenId) {
         return ResponseEntity.ok(Map.of(
                 "message", "AMAPI tokens are managed by Google; local token revocation is not supported in this endpoint"));
     }
