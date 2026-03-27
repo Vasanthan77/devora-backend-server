@@ -110,7 +110,7 @@ public class AmapiController {
             int count = 0;
             if (enterprises.isArray()) {
                 for (JsonNode ent : enterprises) {
-                    String name = ent.path("name").textValue();
+                    String name = ent.path("name").asText();
                     if (name != null && !name.contains("LC03patpnu") && !name.isBlank()) {
                         try {
                             amapiService.deleteEnterprise(name);
@@ -307,7 +307,7 @@ public class AmapiController {
             int count = 0;
             if (devices.isArray()) {
                 for (JsonNode device : devices) {
-                    String fullDeviceName = device.path("name").textValue();
+                    String fullDeviceName = device.path("name").asText();
                     if (fullDeviceName != null && !fullDeviceName.isBlank()) {
                         try {
                             amapiService.deleteDevice(resolved, fullDeviceName);
@@ -675,7 +675,7 @@ public class AmapiController {
             JsonNode root = objectMapper.readTree(enterpriseJson);
             JsonNode node = root.path("enterpriseType");
             if (node.isMissingNode() || node.isNull()) return null;
-            String value = node.textValue();
+            String value = node.asText();
             return value == null || value.isBlank() ? null : value;
         } catch (Exception ex) {
             return null;

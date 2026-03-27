@@ -58,6 +58,34 @@ public class EnrollmentController {
     }
 
     /**
+     * Generate AMAPI enrollment token for quick testing via browser (GET).
+     */
+    @GetMapping("/enrollment/generate-test")
+    public ResponseEntity<Map<String, Object>> generateTokenGet() {
+        try {
+            String raw = amapiService.createEnrollmentToken(enterpriseName, defaultPolicyId, "QR_CODE");
+            JsonNode node = objectMapper.readTree(raw);
+            String token = node.path("value").asText();
+            String expiresAt = node.path("expirationTimestamp").asText();
+            String tokenName = node.path("name").asText();
+            String qrCode = node.path("qrCode").asText();
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("token", token);
+            payload.put("tokenName", tokenName);
+            payload.put("expiresAt", expiresAt);
+            payload.put("qrCode", qrCode);
+            payload.put("status", "PENDING_TEST");
+            return ResponseEntity.ok(payload);
+        } catch (Exception e) {
+            log.error("Failed to generate test token", e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "message", "Failed to generate test token",
+                    "error", e.getMessage()));
+        }
+    }
+
+    /**
      * Generate AMAPI enrollment token. PostgreSQL is used for audit/history, not token storage.
      */
     @PostMapping("/enrollment/generate")

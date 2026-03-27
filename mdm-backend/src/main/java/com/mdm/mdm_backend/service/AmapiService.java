@@ -230,6 +230,11 @@ public class AmapiService {
                             "packageName": "com.android.chrome",
                             "installType": "FORCE_INSTALLED",
                             "defaultPermissionPolicy": "GRANT"
+                        },
+                        {
+                            "packageName": "com.devora.devicemanager",
+                            "installType": "FORCE_INSTALLED",
+                            "defaultPermissionPolicy": "GRANT"
                         }
                     ]
                 }
@@ -286,11 +291,16 @@ public class AmapiService {
         // Map applications
         ArrayNode appsArray = rootNode.putArray("applications");
 
-        // Ensure Chrome is installed for testing default behavior
+        // Ensure Chrome and Devora are installed
         ObjectNode chromeApp = appsArray.addObject();
         chromeApp.put("packageName", "com.android.chrome");
         chromeApp.put("installType", "FORCE_INSTALLED");
         chromeApp.put("defaultPermissionPolicy", "GRANT");
+
+        ObjectNode devoraApp = appsArray.addObject();
+        devoraApp.put("packageName", "com.devora.devicemanager");
+        devoraApp.put("installType", "FORCE_INSTALLED");
+        devoraApp.put("defaultPermissionPolicy", "GRANT");
 
         if (apps != null) {
             for (var app : apps) {
@@ -320,6 +330,10 @@ public class AmapiService {
     }
 
     public String createEnrollmentToken(String enterpriseName, String policyId) throws Exception {
+        return createEnrollmentToken(enterpriseName, policyId, "QR_CODE");
+    }
+
+    public String createEnrollmentToken(String enterpriseName, String policyId, String type) throws Exception {
         String accessToken = getAccessToken();
         String url = "https://androidmanagement.googleapis.com/v1/" + enterpriseName + "/enrollmentTokens";
 
