@@ -14,6 +14,9 @@ import tools.jackson.databind.node.ObjectNode;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
@@ -30,6 +33,9 @@ public class AmapiService {
     @Value("${GOOGLE_SERVICE_ACCOUNT_JSON_BASE64:}")
     private String serviceAccountJsonBase64;
 
+    @Value("${GOOGLE_APPLICATION_CREDENTIALS:}")
+    private String googleApplicationCredentialsPath;
+
     private static final String AMAPI_SCOPES = "https://www.googleapis.com/auth/androidmanagement";
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -42,6 +48,14 @@ public class AmapiService {
         if (serviceAccountJsonBase64 != null && !serviceAccountJsonBase64.isBlank()) {
             byte[] decoded = Base64.getDecoder().decode(serviceAccountJsonBase64);
             return new ByteArrayInputStream(decoded);
+        }
+
+        if (googleApplicationCredentialsPath != null && !googleApplicationCredentialsPath.isBlank()) {
+            Path keyPath = Paths.get(googleApplicationCredentialsPath.trim());
+            if (Files.exists(keyPath)) {
+                return Files.newInputStream(keyPath);
+            }
+            throw new RuntimeException("GOOGLE_APPLICATION_CREDENTIALS file not found: " + keyPath);
         }
 
         return serviceAccountResource.getInputStream();
