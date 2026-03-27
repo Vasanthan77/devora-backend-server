@@ -209,6 +209,38 @@ public class AmapiController {
         }
     }
 
+    @DeleteMapping("/devices/bulk-delete")
+    public ResponseEntity<?> deleteAllDevices(@RequestParam(required = false) String enterpriseName) {
+        try {
+            String resolvedEnterprise = enterpriseName != null && !enterpriseName.isBlank()
+                    ? enterpriseName
+                    : defaultEnterpriseName;
+
+            // 1. Get the list of all devices from Google
+            String rawDevices = amapiService.listDevices(resolvedEnterprise);
+            JsonNode root = objectMapper.readTree(rawDevices);
+            JsonNode devices = root.path("devices");
+
+            int count = 0;
+            if (devices.isArray()) {
+                for (JsonNode device : devices) {
+                    String fullDeviceName = device.path("name").asText();
+                    if (!fullDeviceName.isBlank()) {
+                        // 2. Delete each one from AMAPI
+                        amapiService.deleteDevice(resolvedEnterprise, fullDeviceName);
+                        count++;
+                    }
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Bulk deletion completed from Google AMAPI quota",
+                    "deletedCount", count));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error during bulk delete: " + e.getMessage());
+        }
+    }
+
     @DeleteMapping("/devices/{deviceId}")
     public ResponseEntity<?> deleteDevice(@org.springframework.web.bind.annotation.PathVariable String deviceId,
             @RequestParam(required = false) String enterpriseName) {
