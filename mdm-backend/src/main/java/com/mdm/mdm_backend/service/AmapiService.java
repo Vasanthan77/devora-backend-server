@@ -165,7 +165,7 @@ public class AmapiService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-HTTP-Method-Override", "PATCH");
 
-        String fullTopicName = "projects/" + projectId + "/topics/" + topicName;
+        String fullTopicName = topicName.startsWith("projects/") ? topicName : "projects/" + projectId + "/topics/" + topicName;
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode rootNode = mapper.createObjectNode();
         rootNode.put("pubsubTopic", fullTopicName);
