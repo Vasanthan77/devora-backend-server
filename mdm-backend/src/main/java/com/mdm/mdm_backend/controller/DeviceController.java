@@ -80,6 +80,16 @@ public class DeviceController {
                 try {
                         String employeeName = deviceRepo.findByDeviceId(deviceId)
                                         .map(Device::getEmployeeName).orElse("Unknown");
+
+                        // Sync deletion with Google AMAPI to free up project quota
+                        try {
+                                amapiService.deleteDevice(enterpriseName, deviceId);
+                                log.info("Successfully deleted device {} from AMAPI", deviceId);
+                        } catch (Exception amapiEx) {
+                                log.warn("Device {} deleted locally but failed to delete from AMAPI (it might already be gone): {}",
+                                                deviceId, amapiEx.getMessage());
+                        }
+
                         boolean deleted = enrollmentService.deleteDeviceWithAllData(deviceId);
                         if (!deleted) {
                                 return ResponseEntity.status(HttpStatus.NOT_FOUND)

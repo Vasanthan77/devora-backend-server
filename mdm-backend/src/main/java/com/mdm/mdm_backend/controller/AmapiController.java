@@ -4,6 +4,7 @@ import com.mdm.mdm_backend.service.AmapiService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -203,6 +204,19 @@ public class AmapiController {
                     enterpriseName != null && !enterpriseName.isBlank() ? enterpriseName : defaultEnterpriseName,
                     deviceId);
             return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/devices/{deviceId}")
+    public ResponseEntity<?> deleteDevice(@org.springframework.web.bind.annotation.PathVariable String deviceId,
+            @RequestParam(required = false) String enterpriseName) {
+        try {
+            amapiService.deleteDevice(
+                    enterpriseName != null && !enterpriseName.isBlank() ? enterpriseName : defaultEnterpriseName,
+                    deviceId);
+            return ResponseEntity.ok(Map.of("message", "Device deleted successfully from Google AMAPI"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }

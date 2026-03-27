@@ -414,4 +414,18 @@ public class AmapiService {
             throw new RuntimeException("Failed to list devices: " + response.getBody());
         }
     }
+
+    public void deleteDevice(String enterpriseName, String deviceId) throws Exception {
+        String accessToken = getAccessToken();
+        // deviceId in AMAPI usually includes the enterprise, e.g. "enterprises/LC01oh6rj0/devices/12345"
+        String deviceName = deviceId.startsWith("enterprises/") ? deviceId : enterpriseName + "/devices/" + deviceId;
+        String url = "https://androidmanagement.googleapis.com/v1/" + deviceName;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        // Use DELETE method directly to remove from Google AMAPI records and free up quota
+        restTemplate.exchange(url, HttpMethod.DELETE, entity, Void.class);
+    }
 }
