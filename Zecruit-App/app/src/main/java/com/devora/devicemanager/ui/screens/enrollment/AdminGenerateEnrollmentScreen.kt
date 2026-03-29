@@ -257,11 +257,11 @@ fun AdminGenerateEnrollmentScreen(
         if (generatedToken.isBlank() && generatedQrPayload.isBlank()) {
             null
         } else if (generatedQrPayload.isNotBlank()) {
+            // AMAPI qrCode payload — render directly
             QrProvisioningHelper.generateQrBitmap(generatedQrPayload)
         } else {
-            QrProvisioningHelper.generateDeviceOwnerProvisioningQr(
-                enrollmentToken = generatedToken
-            )
+            // Wrap the token in our JSON envelope so the employee scanner can parse it
+            QrProvisioningHelper.generateEnrollmentTokenQr(generatedToken)
         }
     }
 

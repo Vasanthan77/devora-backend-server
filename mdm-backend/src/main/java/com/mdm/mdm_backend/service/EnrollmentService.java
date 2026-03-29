@@ -119,26 +119,34 @@ public class EnrollmentService {
         String employeeId = null;
 
         if (request.getEnrollmentToken() != null && !request.getEnrollmentToken().isBlank()) {
-            EnrollmentToken token = enrollmentTokenRepository.findByToken(request.getEnrollmentToken())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token not found"));
+            Optional<EnrollmentToken> tokenOpt = enrollmentTokenRepository.findByToken(request.getEnrollmentToken());
+            
+            if (tokenOpt.isPresent()) {
+                EnrollmentToken token = tokenOpt.get();
 
-            if (LocalDateTime.now().isAfter(token.getExpiresAt())) {
-                token.setStatus("EXPIRED");
-                enrollmentTokenRepository.save(token);
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Enrollment token has expired. Please generate a new token.");
+                if (LocalDateTime.now().isAfter(token.getExpiresAt())) {
+                    token.setStatus("EXPIRED");
+                    enrollmentTokenRepository.save(token);
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Enrollment token has expired. Please generate a new token.");
+                }
+
+                if (!"PENDING".equals(token.getStatus())) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Token already used or revoked: " + token.getStatus());
+                }
+
+                employeeName = token.getEmployeeName();
+                employeeId = token.getEmployeeId();
+                markTokenAsUsed(request.getEnrollmentToken(), request.getDeviceId());
+            } else {
+                // Token not in local DB — may be an AMAPI-provisioned device.
+                // Allow enrollment to proceed without employee mapping.
+                log.warn("Enrollment token not found in local DB: {}... (may be AMAPI-provisioned)",
+                        request.getEnrollmentToken().substring(0, Math.min(20, request.getEnrollmentToken().length())));
             }
-
-            if (!"PENDING".equals(token.getStatus())) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Token already used or revoked: " + token.getStatus());
-            }
-
-            employeeName = token.getEmployeeName();
-            employeeId = token.getEmployeeId();
-            markTokenAsUsed(request.getEnrollmentToken(), request.getDeviceId());
         }
 
         if ((employeeName == null || employeeName.isBlank()) || (employeeId == null || employeeId.isBlank())) {

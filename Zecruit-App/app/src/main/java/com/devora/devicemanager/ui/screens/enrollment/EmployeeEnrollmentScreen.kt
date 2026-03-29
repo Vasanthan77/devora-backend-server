@@ -717,16 +717,17 @@ fun EmployeeEnrollmentScreen(
                     // Validate & Enroll button
                     Button(
                         onClick = {
-                            if (!tokenInput.text.startsWith("DEV-") || tokenInput.text.length != 18) {
+                            val rawToken = tokenInput.text.trim()
+                            if (rawToken.isBlank()) {
                                 coroutineScope.launch {
-                                    snackbarHostState.showSnackbar("Invalid token format")
+                                    snackbarHostState.showSnackbar("Please enter a token")
                                 }
                                 return@Button
                             }
-                            enrollmentVm.onTokenChanged(tokenInput.text)
+                            enrollmentVm.onTokenChanged(rawToken)
                             enrollmentVm.enrollWithToken()
                         },
-                        enabled = tokenInput.text.length == 18,
+                        enabled = tokenInput.text.trim().isNotBlank(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),

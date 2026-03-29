@@ -85,13 +85,14 @@ class EnrollmentViewModel(application: Application) : AndroidViewModel(applicati
      * Starts enrollment using a manually-entered token.
      */
     fun enrollWithToken() {
-        val token = _uiState.value.tokenInput
-        if (!repository.validateTokenFormat(token)) {
+        val token = _uiState.value.tokenInput.trim()
+        if (token.isBlank()) {
             _uiState.value = _uiState.value.copy(
-                errorMessage = "Invalid token format. Expected DEV-XXXX-XXXX-XXXX"
+                errorMessage = "Please enter an enrollment token"
             )
             return
         }
+        // Accept both legacy DEV-XXXX format and AMAPI tokens
         startEnrollment(token, "TOKEN")
     }
 

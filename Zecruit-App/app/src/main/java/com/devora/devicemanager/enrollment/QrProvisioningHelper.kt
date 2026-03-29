@@ -27,7 +27,7 @@ object QrProvisioningHelper {
         enrollmentToken: String? = null
     ): String {
         val payload = linkedMapOf<String, Any>(
-            "provider" to "AMAPI",
+            "provider" to "DEVORA_MDM",
             "type" to "ENROLLMENT_TOKEN"
         )
 
@@ -83,7 +83,13 @@ object QrProvisioningHelper {
      * @param size   QR bitmap dimension in pixels
      */
     fun generateEnrollmentTokenQr(token: String, size: Int = 512): Bitmap? {
-        val payload = token.trim().uppercase() // Send raw token string for robustness
+        // Wrap the token in a JSON envelope so the scanner can reliably parse it
+        val payload = GsonBuilder().create().toJson(
+            linkedMapOf(
+                "provider" to "DEVORA_MDM",
+                "enrollmentToken" to token.trim()
+            )
+        )
         return generateQrBitmap(payload, size)
     }
 
@@ -117,22 +123,43 @@ object QrProvisioningHelper {
      * @return enrollment token if found, null otherwise
      */
     fun parseEnrollmentQr(qrContent: String): String? {
-        val normalizedContent = qrContent.trim().uppercase()
-        
-        // Strategy 1: Look for raw token string directly (DEV-XXXX-XXXX-XXXX)
-        val tokenRegex = Regex("DEV-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}")
-        tokenRegex.find(normalizedContent)?.value?.let { return it }
+        val trimmed = qrContent.trim()
 
-        // Strategy 2: Look for JSON format
+        // Strategy 1: Look for legacy DEV-XXXX-XXXX-XXXX token format
+        val legacyTokenRegex = Regex("DEV-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}")
+        legacyTokenRegex.find(trimmed.uppercase())?.value?.let { return it }
+
+        // Strategy 2: Parse JSON envelope (our own format or AMAPI qrCode)
         return try {
-            val map = Gson().fromJson(qrContent, Map::class.java)
-            val extracted = ((map["enrollment_token"] as? String)
-                ?: (map["com.devora.devicemanager.ENROLLMENT_TOKEN"] as? String))
-            
-            extracted?.trim()?.uppercase()?.let { 
-                if (tokenRegex.matches(it)) it else null
+            val map = Gson().fromJson(trimmed, Map::class.java)
+
+            // 2a: Our DEVORA_MDM JSON envelope: {"provider":"DEVORA_MDM","enrollmentToken":"..."}
+            (map["enrollmentToken"] as? String)?.trim()?.let {
+                if (it.isNotBlank()) return it
             }
+
+            // 2b: Legacy key names
+            (map["enrollment_token"] as? String)?.trim()?.let {
+                if (it.isNotBlank()) return it
+            }
+            (map["com.devora.devicemanager.ENROLLMENT_TOKEN"] as? String)?.trim()?.let {
+                if (it.isNotBlank()) return it
+            }
+
+            // 2c: AMAPI provisioning QR — extract the enrollment token from extras
+            (map["android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM"] as? String)
+            // If it looks like an AMAPI QR, try to find the enrollment token
+            (map["android.app.extra.PROVISIONING_ENTERPRISE_TOKEN"] as? String)?.trim()?.let {
+                if (it.isNotBlank()) return it
+            }
+
+            null
         } catch (e: Exception) {
+            // Strategy 3: Not JSON — treat the entire content as a raw token
+            // (AMAPI token values are long alphanumeric strings)
+            if (trimmed.length >= 10 && trimmed.all { it.isLetterOrDigit() || it == '_' || it == '-' }) {
+                return trimmed
+            }
             null
         }
     }

@@ -63,10 +63,22 @@ class EnrollmentRepository(
     }
 
     /**
-     * Validates token format: must match DEV-XXXX-XXXX-XXXX (16 alphanumeric characters).
+     * Validates token format: accepts both legacy DEV-XXXX-XXXX-XXXX and AMAPI tokens.
+     * AMAPI tokens are long alphanumeric strings returned by Google's enrollment API.
      */
     fun validateTokenFormat(token: String): Boolean {
-        // DEV-XXXX-XXXX-XXXX = 18 chars total (3 prefix + 3 dashes + 12 body)
+        val trimmed = token.trim()
+        if (trimmed.isBlank()) return false
+        // Legacy format: DEV-XXXX-XXXX-XXXX
+        if (isLegacyTokenFormat(trimmed)) return true
+        // AMAPI tokens: generally long alphanumeric strings (10+ chars)
+        return trimmed.length >= 10
+    }
+
+    /**
+     * Returns true if the token matches the legacy DEV-XXXX-XXXX-XXXX format.
+     */
+    fun isLegacyTokenFormat(token: String): Boolean {
         return Regex("^DEV-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$")
             .matches(token.trim().uppercase())
     }
@@ -104,7 +116,7 @@ class EnrollmentRepository(
                     enrolledAt = null,
                     status = "FAILED",
                     method = method,
-                    errorMessage = "Invalid token format. Expected DEV-XXXX-XXXX-XXXX"
+                    errorMessage = "Invalid token. Please check and try again."
                 )
             }
 

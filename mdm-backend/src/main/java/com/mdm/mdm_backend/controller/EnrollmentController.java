@@ -98,6 +98,13 @@ public class EnrollmentController {
             String tokenName = node.path("name").asText(null);
             String qrCode = node.path("qrCode").asText(null);
 
+                // Store the AMAPI token in the local DB so /api/enroll can find it
+                enrollmentService.generateEnrollmentToken(
+                    token,
+                    request.getEmployeeId(),
+                    request.getEmployeeName()
+                );
+
                 Map<String, Object> payload = new HashMap<>();
                 payload.put("token", token);
                 payload.put("tokenName", tokenName);
